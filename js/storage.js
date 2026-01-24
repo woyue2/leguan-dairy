@@ -314,17 +314,15 @@ class DiaryStorage {
 
   getWeeklyStats() {
     const weeklies = this.getAllWeekly()
+    const now = new Date()
+    const year = now.getFullYear()
+    const oneJan = new Date(year, 0, 1)
+    const weekNumber = Math.ceil(
+      (((now - oneJan) / 86400000) + oneJan.getDay() + 1) / 7
+    )
     return {
       total: weeklies.length,
-      thisWeek: this.getWeeklyByWeek(
-        new Date().getFullYear(),
-        Math.ceil(
-          (((new Date() - new Date(new Date().getFullYear(), 0, 1)) / 86400000 +
-            new Date(new Date().getFullYear(), 0, 1).getDay() +
-            1) /
-            7
-        )
-      )
+      thisWeek: this.getWeeklyByWeek(year, weekNumber)
     }
   }
 }

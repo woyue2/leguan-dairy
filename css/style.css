@@ -854,6 +854,42 @@ body {
   color: var(--text-secondary);
 }
 
+.weekly-empty-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 15px;
+}
+
+.weekly-day-count {
+  font-size: 2.5em;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.weekly-day-count .count-number {
+  color: var(--primary-color);
+}
+
+.weekly-day-count .count-total {
+  font-size: 0.5em;
+  color: var(--text-secondary);
+}
+
+.weekly-tip {
+  color: var(--text-secondary);
+  font-size: 0.95em;
+  margin-bottom: 10px;
+}
+
+.weekly-actions {
+  display: flex;
+  gap: 15px;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin-top: 10px;
+}
+
 .weekly-empty p {
   margin-bottom: 20px;
 }

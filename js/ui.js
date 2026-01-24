@@ -317,17 +317,16 @@ class UIManager {
       btnUseRewritten.onclick = null
       btnRegenerate.onclick = null
       btnMinimize.onclick = null
-      btnClose.onclick = null
-    }
-      btnClose.onclick = null
     }
 
     btnMinimize.onclick = () => {
-      cleanup()
       modal.classList.add('hidden')
     }
 
-    btnClose.onclick = cleanup
+    btnClose.onclick = () => {
+      modal.classList.add('hidden')
+      cleanup()
+    }
   }
 
   saveApiKey() {
@@ -606,9 +605,10 @@ class UIManager {
     const storage = new DiaryStorage()
     const weekInfo = storage.getCurrentWeekInfo()
     const diaries = storage.getDiariesForWeek(weekInfo.year, weekInfo.weekNumber)
+    const dayCount = diaries.length
 
-    if (diaries.length === 0) {
-      this.showWeeklyEmpty()
+    if (dayCount < 4) {
+      this.showWeeklyEmpty(dayCount, 7)
       return
     }
 
@@ -638,10 +638,43 @@ class UIManager {
     }
   }
 
+  async forceGenerateWeekly() {
+    const storage = new DiaryStorage()
+    const weekInfo = storage.getCurrentWeekInfo()
+    const diaries = storage.getDiariesForWeek(weekInfo.year, weekInfo.weekNumber)
+    const dayCount = diaries.length
+
+    this.showWeeklyModal()
+    this.showWeeklyProgress(true, 0, '正在生成周记...', `注意：仅有 ${dayCount} 天日记`)
+
+    try {
+      const api = new ZhipuAPI()
+      const result = await api.generateWeeklySummary(diaries, (percent, status, info) => {
+        this.updateWeeklyProgress(percent, status, info)
+      })
+
+      this.currentWeeklyData = {
+        ...weekInfo,
+        diaryIds: diaries.map(d => d.id),
+        title: result.title,
+        summary: result.summary
+      }
+
+      this.showWeeklyResult(result.title, result.summary)
+      this.bindWeeklyModalEvents()
+      this.showToast('周记已生成（天数较少，可能不够有代表性）')
+
+    } catch (error) {
+      this.showToast(error.message)
+      this.hideWeeklyModal()
+    }
+  }
+
   showWeeklyModal() {
     const modal = document.getElementById('modal-weekly')
     if (modal) {
       modal.classList.remove('hidden')
+      this.bindWeeklyModalEvents()
     }
   }
 
@@ -685,18 +718,42 @@ class UIManager {
     }
   }
 
-  showWeeklyEmpty() {
+  showWeeklyEmpty(currentDay = 0, totalDays = 7) {
     this.showWeeklyModal()
 
     const progress = document.getElementById('weekly-progress')
     const result = document.getElementById('weekly-result')
     const empty = document.getElementById('weekly-empty')
     const footer = document.getElementById('weekly-modal-footer')
+    const title = document.getElementById('weekly-modal-title')
 
     if (progress) progress.classList.add('hidden')
     if (result) result.classList.add('hidden')
     if (empty) empty.classList.remove('hidden')
     if (footer) footer.classList.add('hidden')
+    if (title) title.textContent = '周记生成'
+
+    const btnClose = document.getElementById('btn-close-weekly')
+    if (btnClose) {
+      btnClose.onclick = () => this.hideWeeklyModal()
+    }
+
+    const emptyContent = document.getElementById('weekly-empty')
+    if (emptyContent) {
+      emptyContent.innerHTML = `
+        <div class="weekly-empty-content">
+          <div class="weekly-day-count">
+            <span class="count-number">${currentDay}</span>
+            <span class="count-total">/${totalDays} 天</span>
+          </div>
+          <p class="weekly-tip">至少需要4天才能生成有代表性的周记</p>
+          <div class="weekly-actions">
+            <button class="btn btn-primary" onclick="ui.hideWeeklyModal(); ui.showEditor()">继续写日记</button>
+            ${currentDay > 0 ? `<button class="btn btn-secondary" onclick="ui.forceGenerateWeekly()">强制生成（可能不够有代表性）</button>` : ''}
+          </div>
+        </div>
+      `
+    }
   }
 
   showWeeklyResult(title, summary) {
