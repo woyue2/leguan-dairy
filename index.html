@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="智能日记本 - AI情感分析与积极改写">
+  <title>智能日记本</title>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#4a90d9">
+</head>
+<body>
+  <div id="app" class="container">
+    <header class="header">
+      <h1>智能日记本</h1>
+      <div class="status-bar">
+        <span id="status-online" class="status-online">在线</span>
+        <span id="status-queue" class="status-queue" style="display: none;">
+          队列: <span id="status-count">0</span>
+        </span>
+      </div>
+    </header>
+
+    <main>
+      <div id="view-list" class="view">
+        <div class="diary-list-header" style="margin-bottom: 20px;">
+          <button id="btn-new" class="btn btn-primary">写新日记</button>
+          <button id="btn-settings" class="btn btn-secondary">设置</button>
+        </div>
+        <div id="diary-list" class="diary-list">
+        </div>
+      </div>
+
+      <div id="view-editor" class="view view-editor hidden">
+        <div class="editor-header">
+          <input type="text" id="editor-title" class="editor-title-input" placeholder="日记标题（可选）">
+          <button id="btn-back" class="btn btn-secondary btn-small">返回列表</button>
+        </div>
+        <textarea id="editor-content" class="editor-content" placeholder="今天发生了什么？写下你的心情和想法..."></textarea>
+        <div class="editor-footer">
+          <span id="word-count" class="word-count">0 字</span>
+          <button id="btn-save" class="btn btn-primary">保存并分析</button>
+        </div>
+      </div>
+
+      <div id="view-settings" class="view view-settings hidden">
+        <h2>设置</h2>
+        <div class="settings-form">
+          <div class="form-group">
+            <label for="settings-api-key">智谱AI API Key</label>
+            <input type="password" id="settings-api-key" placeholder="输入你的API Key">
+            <p style="margin-top: 8px; color: var(--text-secondary); font-size: 0.85rem;">
+              请前往 <a href="https://www.bigmodel.cn/" target="_blank">智谱AI开放平台</a> 获取API Key
+            </p>
+          </div>
+          <button id="btn-api-key" class="btn btn-primary">保存API Key</button>
+        </div>
+
+        <div class="backup-section">
+          <h3>数据备份</h3>
+          <div class="backup-buttons">
+            <button class="btn btn-secondary" onclick="exportData()">导出数据</button>
+            <button class="btn btn-secondary" onclick="importData()">导入数据</button>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <div id="modal-analysis" class="modal-overlay hidden">
+      <div class="modal">
+        <div class="modal-header">
+          <h2>情感分析结果</h2>
+          <button id="btn-close-modal" class="modal-close">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div class="analysis-label">原文（负面句子已标记，悬停查看改写建议）</div>
+          <div id="analysis-content" class="analysis-content"></div>
+          <div class="analysis-label">积极改写版本</div>
+          <div id="analysis-rewritten" class="analysis-rewritten"></div>
+        </div>
+        <div class="modal-footer">
+          <button id="btn-minimize-modal" class="btn btn-secondary">最小化</button>
+          <button id="btn-keep-original" class="btn btn-secondary">保留原文</button>
+          <button id="btn-use-rewritten" class="btn btn-primary">采用改写</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="toast" class="toast"></div>
+  </div>
+
+  <script src="config/env.js"></script>
+  <script src="js/storage.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/offline.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
