@@ -16,7 +16,8 @@ const Config = {
     apiKey: 'diary_api_key',
     diaries: 'diary_entries',
     offlineQueue: 'diary_offline_queue',
-    settings: 'diary_settings'
+    settings: 'diary_settings',
+    weekly: 'weekly_entries'
   },
 
   ui: {

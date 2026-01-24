@@ -167,4 +167,164 @@ class DiaryStorage {
       throw new Error('导入失败: ' + e.message)
     }
   }
+
+  // ========== 周记相关方法 ==========
+
+  getWeeklyStorageKey() {
+    return Config.storageKeys.weekly
+  }
+
+  getAllWeekly() {
+    try {
+      const data = localStorage.getItem(this.getWeeklyStorageKey())
+      return data ? JSON.parse(data) : []
+    } catch (e) {
+      console.error('读取周记失败:', e)
+      return []
+    }
+  }
+
+  getWeeklyById(id) {
+    const weeklies = this.getAllWeekly()
+    return weeklies.find(w => w.id === id) || null
+  }
+
+  getWeeklyByWeek(year, weekNumber) {
+    const weeklies = this.getAllWeekly()
+    return weeklies.find(w => w.year === year && w.weekNumber === weekNumber) || null
+  }
+
+  createWeekly(weekly) {
+    const weeklies = this.getAllWeekly()
+    const newWeekly = {
+      id: `weekly_${weekly.year}-W${weekly.weekNumber}`,
+      year: weekly.year,
+      weekNumber: weekly.weekNumber,
+      startDate: weekly.startDate,
+      endDate: weekly.endDate,
+      diaryIds: weekly.diaryIds || [],
+      summary: weekly.summary || '',
+      title: weekly.title || '',
+      createdAt: new Date().toISOString(),
+      regenerations: 0
+    }
+
+    const existingIndex = weeklies.findIndex(
+      w => w.year === weekly.year && w.weekNumber === weekly.weekNumber
+    )
+
+    if (existingIndex >= 0) {
+      weeklies[existingIndex] = newWeekly
+    } else {
+      weeklies.unshift(newWeekly)
+    }
+
+    this.saveAllWeekly(weeklies)
+    return newWeekly
+  }
+
+  updateWeekly(id, updates) {
+    const weeklies = this.getAllWeekly()
+    const index = weeklies.findIndex(w => w.id === id)
+
+    if (index === -1) {
+      throw new Error('周记不存在')
+    }
+
+    weeklies[index] = {
+      ...weeklies[index],
+      ...updates,
+      updatedAt: new Date().toISOString()
+    }
+
+    this.saveAllWeekly(weeklies)
+    return weeklies[index]
+  }
+
+  deleteWeekly(id) {
+    const weeklies = this.getAllWeekly()
+    const filtered = weeklies.filter(w => w.id !== id)
+    this.saveAllWeekly(filtered)
+  }
+
+  saveAllWeekly(weeklies) {
+    try {
+      localStorage.setItem(this.getWeeklyStorageKey(), JSON.stringify(weeklies))
+    } catch (e) {
+      console.error('保存周记失败:', e)
+      throw new Error('存储空间不足，无法保存周记')
+    }
+  }
+
+  getDiariesForWeek(year, weekNumber) {
+    const diaries = this.getAll()
+    const startDate = this.getWeekStartDate(year, weekNumber)
+    const endDate = this.getWeekEndDate(year, weekNumber)
+
+    return diaries.filter(diary => {
+      const diaryDate = new Date(diary.date)
+      return diaryDate >= startDate && diaryDate <= endDate
+    }).sort((a, b) => new Date(a.date) - new Date(b.date))
+  }
+
+  getWeekStartDate(year, weekNumber) {
+    const simple = new Date(year, 0, 1 + (weekNumber - 1) * 7)
+    const dow = simple.getDay()
+    const weekStart = simple
+    if (dow <= 4) {
+      weekStart.setDate(simple.getDate() - simple.getDay() + 1)
+    } else {
+      weekStart.setDate(simple.getDate() + 8 - simple.getDay())
+    }
+    return weekStart
+  }
+
+  getWeekEndDate(year, weekNumber) {
+    const startDate = this.getWeekStartDate(year, weekNumber)
+    const endDate = new Date(startDate)
+    endDate.setDate(startDate.getDate() + 6)
+    return endDate
+  }
+
+  getCurrentWeekInfo() {
+    const now = new Date()
+    const year = now.getFullYear()
+    const oneJan = new Date(year, 0, 1)
+    const weekNumber = Math.ceil(
+      (((now - oneJan) / 86400000) + oneJan.getDay() + 1) / 7
+    )
+
+    return {
+      year,
+      weekNumber,
+      startDate: this.getWeekStartDate(year, weekNumber)
+        .toISOString()
+        .split('T')[0],
+      endDate: this.getWeekEndDate(year, weekNumber)
+        .toISOString()
+        .split('T')[0]
+    }
+  }
+
+  hasDiariesThisWeek() {
+    const weekInfo = this.getCurrentWeekInfo()
+    const diaries = this.getDiariesForWeek(weekInfo.year, weekInfo.weekNumber)
+    return diaries.length > 0
+  }
+
+  getWeeklyStats() {
+    const weeklies = this.getAllWeekly()
+    return {
+      total: weeklies.length,
+      thisWeek: this.getWeeklyByWeek(
+        new Date().getFullYear(),
+        Math.ceil(
+          (((new Date() - new Date(new Date().getFullYear(), 0, 1)) / 86400000 +
+            new Date(new Date().getFullYear(), 0, 1).getDay() +
+            1) /
+            7
+        )
+      )
+    }
+  }
 }

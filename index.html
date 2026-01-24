@@ -24,10 +24,24 @@
     <main>
       <div id="view-list" class="view">
         <div class="diary-list-header" style="margin-bottom: 20px;">
-          <button id="btn-new" class="btn btn-primary">写新日记</button>
-          <button id="btn-settings" class="btn btn-secondary">设置</button>
+          <div class="header-left">
+            <button id="btn-new" class="btn btn-primary">写新日记</button>
+            <button id="btn-weekly" class="btn btn-secondary">📖 周记</button>
+          </div>
+          <div class="header-right">
+            <button id="btn-settings" class="btn btn-secondary">设置</button>
+          </div>
         </div>
         <div id="diary-list" class="diary-list">
+        </div>
+      </div>
+
+      <div id="view-weekly" class="view view-weekly hidden">
+        <div class="weekly-header">
+          <h2>周记本</h2>
+          <button id="btn-back-to-list" class="btn btn-secondary btn-small">返回日记</button>
+        </div>
+        <div id="weekly-list" class="weekly-list">
         </div>
       </div>
 
@@ -92,6 +106,7 @@
           <div id="analysis-rewritten" class="analysis-rewritten"></div>
         </div>
         <div class="modal-footer">
+          <button id="btn-regenerate-analysis" class="btn btn-secondary">重新生成</button>
           <button id="btn-minimize-modal" class="btn btn-secondary">最小化</button>
           <button id="btn-keep-original" class="btn btn-secondary">保留原文</button>
           <button id="btn-use-rewritten" class="btn btn-primary">采用改写</button>
@@ -122,6 +137,39 @@
       <div class="viewer-content-wrapper">
         <article id="viewer-article" class="viewer-article">
         </article>
+      </div>
+    </div>
+
+    <div id="modal-weekly" class="modal-overlay weekly-modal-overlay hidden">
+      <div class="weekly-modal">
+        <div class="weekly-modal-header">
+          <h2 id="weekly-modal-title">周记生成</h2>
+          <button id="btn-close-weekly" class="modal-close">&times;</button>
+        </div>
+        <div id="weekly-modal-body" class="weekly-modal-body">
+          <div id="weekly-progress" class="weekly-progress hidden">
+            <div class="progress-header">
+              <span class="progress-spinner"></span>
+              <span id="weekly-progress-status">正在生成周记...</span>
+            </div>
+            <div class="progress-bar-container">
+              <div id="weekly-progress-bar" class="progress-bar"></div>
+            </div>
+            <div id="weekly-progress-info" class="progress-info">准备中</div>
+          </div>
+          <div id="weekly-result" class="weekly-result hidden">
+            <div id="weekly-title" class="weekly-title"></div>
+            <div id="weekly-summary" class="weekly-summary"></div>
+          </div>
+          <div id="weekly-empty" class="weekly-empty hidden">
+            <p>本周还没有日记，无法生成周记</p>
+            <button class="btn btn-primary" onclick="ui.showEditor()">写一篇日记</button>
+          </div>
+        </div>
+        <div id="weekly-modal-footer" class="weekly-modal-footer hidden">
+          <button id="btn-regenerate-weekly" class="btn btn-secondary">重新生成</button>
+          <button id="btn-save-weekly" class="btn btn-primary">保存周记</button>
+        </div>
       </div>
     </div>
 
