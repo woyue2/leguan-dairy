@@ -121,6 +121,7 @@ class UIManager {
             ${diary.isAnalyzed ? '已分析' : '未分析'}
           </span>
           <div class="diary-card-actions">
+            <button class="btn-small" onclick="ui.showViewer('${diary.id}')">查看</button>
             <button class="btn-small" onclick="ui.showEditor('${diary.id}')">编辑</button>
             <button class="btn-small btn-danger" onclick="ui.deleteDiary('${diary.id}')">删除</button>
           </div>
@@ -426,6 +427,133 @@ class UIManager {
         this.hideAnalysisProgress()
         this.showToast('已取消分析')
       }
+    }
+  }
+
+  viewerFontSize = 18
+  viewerCurrentDiaryId = null
+  viewerDiaries = []
+
+  showViewer(diaryId) {
+    const storage = new DiaryStorage()
+    this.viewerDiaries = storage.getAll()
+
+    const currentIndex = this.viewerDiaries.findIndex(d => d.id === diaryId)
+    if (currentIndex === -1) {
+      this.showToast('日记不存在')
+      return
+    }
+
+    this.viewerCurrentDiaryId = diaryId
+    this.viewerFontSize = 18
+
+    this.renderViewerContent(diaryId)
+    this.updateViewerNavigation()
+    this.updateViewerFontSize()
+
+    const modal = document.getElementById('modal-viewer')
+    modal.classList.remove('hidden')
+    modal.className = 'modal-overlay viewer-overlay'
+
+    document.body.style.overflow = ''
+  }
+
+  closeViewer() {
+    const modal = document.getElementById('modal-viewer')
+    modal.classList.add('hidden')
+    document.body.style.overflow = ''
+  }
+
+  renderViewerContent(diaryId) {
+    const storage = new DiaryStorage()
+    const diary = storage.getById(diaryId)
+    if (!diary) return
+
+    const content = diary.finalVersion || diary.content
+    const article = document.getElementById('viewer-article')
+
+    const paragraphs = content.split('\n').filter(p => p.trim())
+
+    let html = `
+      <h1 class="viewer-title">${this.escapeHtml(diary.title)}</h1>
+      <div class="viewer-date">${this.formatDate(diary.date)}</div>
+    `
+
+    paragraphs.forEach((para, index) => {
+      if (index === 0 && para.length > 0) {
+        const firstChar = para[0]
+        const rest = para.slice(1)
+        html += `<p><span class="viewer-first-letter">${this.escapeHtml(firstChar)}</span><span class="viewer-content">${this.escapeHtml(rest)}</span></p>`
+      } else if (para.trim()) {
+        html += `<p class="viewer-content">${this.escapeHtml(para)}</p>`
+      }
+
+      if (index > 0 && index % 3 === 0 && index < paragraphs.length - 1) {
+        html += `<div class="viewer-chapter-divider">第 ${Math.floor(index / 3) + 1} 章</div>`
+      }
+    })
+
+    article.innerHTML = html
+    article.style.fontSize = `${this.viewerFontSize}px`
+  }
+
+  setViewerTheme(theme) {
+    const modal = document.getElementById('modal-viewer')
+    modal.className = 'modal-overlay viewer-overlay'
+
+    if (theme !== 'light') {
+      modal.classList.add(theme)
+    }
+  }
+
+  adjustViewerFontSize(delta) {
+    this.viewerFontSize = Math.max(14, Math.min(28, this.viewerFontSize + delta))
+    const article = document.getElementById('viewer-article')
+    if (article) {
+      article.style.fontSize = `${this.viewerFontSize}px`
+    }
+    this.updateViewerFontSize()
+  }
+
+  updateViewerFontSize() {
+    const fontSizeEl = document.getElementById('viewer-font-size')
+    if (fontSizeEl) {
+      fontSizeEl.textContent = `${this.viewerFontSize}px`
+    }
+  }
+
+  navigateViewer(direction) {
+    const storage = new DiaryStorage()
+    const diaries = storage.getAll()
+    const currentIndex = diaries.findIndex(d => d.id === this.viewerCurrentDiaryId)
+
+    let newIndex
+    if (direction === 'prev') {
+      newIndex = currentIndex > 0 ? currentIndex - 1 : diaries.length - 1
+    } else {
+      newIndex = currentIndex < diaries.length - 1 ? currentIndex + 1 : 0
+    }
+
+    if (diaries[newIndex]) {
+      this.viewerCurrentDiaryId = diaries[newIndex].id
+      this.renderViewerContent(diaries[newIndex].id)
+      this.updateViewerNavigation()
+    }
+  }
+
+  updateViewerNavigation() {
+    const btnPrev = document.getElementById('btn-prev-diary')
+    const btnNext = document.getElementById('btn-next-diary')
+
+    const storage = new DiaryStorage()
+    const diaries = storage.getAll()
+
+    if (diaries.length <= 1) {
+      btnPrev.style.visibility = 'hidden'
+      btnNext.style.visibility = 'hidden'
+    } else {
+      btnPrev.style.visibility = 'visible'
+      btnNext.style.visibility = 'visible'
     }
   }
 }

@@ -511,3 +511,197 @@ body {
   gap: 10px;
   flex-wrap: wrap;
 }
+
+/* 观看模式样式 */
+.viewer-overlay {
+  background: #faf9f7;
+  display: block;
+  padding: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.viewer-overlay.dark {
+  background: #1a1a1a;
+}
+
+.viewer-overlay.warm {
+  background: #f5f0e6;
+}
+
+.viewer-header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 60px;
+  background: rgba(255, 255, 255, 0.95);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 30px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  z-index: 1001;
+}
+
+.viewer-overlay.dark .viewer-header {
+  background: rgba(30, 30, 30, 0.95);
+}
+
+.viewer-overlay.warm .viewer-header {
+  background: rgba(245, 240, 230, 0.95);
+}
+
+.viewer-controls-left,
+.viewer-controls-center,
+.viewer-controls-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.viewer-btn {
+  padding: 8px 16px;
+  border: 1px solid var(--border-color);
+  border-radius: 20px;
+  background: transparent;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: var(--transition);
+}
+
+.viewer-btn:hover {
+  background: var(--primary-color);
+  color: white;
+  border-color: var(--primary-color);
+}
+
+.viewer-close-btn {
+  background: var(--danger-color);
+  color: white;
+  border-color: var(--danger-color);
+}
+
+.viewer-font-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.viewer-font-btn {
+  padding: 4px 12px;
+  font-weight: 600;
+}
+
+.viewer-content-wrapper {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 100px 30px 120px;
+  min-height: calc(100vh - 220px);
+}
+
+.viewer-article {
+  font-family: 'Noto Serif SC', 'Georgia', serif;
+  line-height: 2.2;
+  letter-spacing: 0.04em;
+  color: #333;
+  font-size: 18px;
+}
+
+.viewer-overlay.dark .viewer-article {
+  color: #e0e0e0;
+}
+
+.viewer-overlay.warm .viewer-article {
+  color: #5a5a5a;
+}
+
+.viewer-article .viewer-title {
+  font-size: 2.2em;
+  font-weight: 700;
+  text-align: center;
+  margin-bottom: 0.5em;
+  color: var(--text-primary);
+}
+
+.viewer-overlay.dark .viewer-article .viewer-title {
+  color: #f0f0f0;
+}
+
+.viewer-overlay.warm .viewer-article .viewer-title {
+  color: #4a4a4a;
+}
+
+.viewer-article .viewer-date {
+  text-align: center;
+  color: var(--text-secondary);
+  font-size: 0.9em;
+  margin-bottom: 3em;
+  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+.viewer-article .viewer-first-letter {
+  float: left;
+  font-size: 4.5em;
+  line-height: 0.8;
+  margin-right: 0.08em;
+  color: var(--primary-color);
+  font-weight: 700;
+}
+
+.viewer-article .viewer-content {
+  text-indent: 2em;
+}
+
+.viewer-article .viewer-chapter-divider {
+  text-align: center;
+  margin: 3em 0;
+  color: var(--text-secondary);
+  font-size: 0.85em;
+  letter-spacing: 0.3em;
+}
+
+.viewer-article .viewer-chapter-divider::before,
+.viewer-article .viewer-chapter-divider::after {
+  content: "———";
+  margin: 0 1em;
+}
+
+.viewer-article p {
+  margin-bottom: 1.5em;
+}
+
+@media (max-width: 768px) {
+  .viewer-header {
+    flex-wrap: wrap;
+    height: auto;
+    padding: 15px 20px;
+    gap: 10px;
+  }
+
+  .viewer-controls-left,
+  .viewer-controls-center,
+  .viewer-controls-right {
+    width: 100%;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+
+  .viewer-content-wrapper {
+    padding: 140px 20px 100px;
+  }
+
+  .viewer-article {
+    font-size: 16px;
+  }
+
+  .viewer-article .viewer-title {
+    font-size: 1.8em;
+  }
+
+  .viewer-article .viewer-first-letter {
+    font-size: 3.5em;
+  }
+}

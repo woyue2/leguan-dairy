@@ -99,6 +99,32 @@
       </div>
     </div>
 
+    <div id="modal-viewer" class="modal-overlay viewer-overlay hidden">
+      <div class="viewer-header">
+        <div class="viewer-controls-left">
+          <button class="viewer-btn" onclick="ui.setViewerTheme('light')" title="浅色模式">☀</button>
+          <button class="viewer-btn" onclick="ui.setViewerTheme('dark')" title="深色模式">☾</button>
+          <button class="viewer-btn" onclick="ui.setViewerTheme('warm')" title="护眼模式">◐</button>
+        </div>
+        <div class="viewer-controls-center">
+          <span class="viewer-font-controls">
+            <button class="viewer-btn viewer-font-btn" onclick="ui.adjustViewerFontSize(-2)">A-</button>
+            <span id="viewer-font-size">18px</span>
+            <button class="viewer-btn viewer-font-btn" onclick="ui.adjustViewerFontSize(2)">A+</button>
+          </span>
+        </div>
+        <div class="viewer-controls-right">
+          <button id="btn-prev-diary" class="viewer-btn" onclick="ui.navigateViewer('prev')">← 上一篇</button>
+          <button id="btn-next-diary" class="viewer-btn" onclick="ui.navigateViewer('next')">下一篇 →</button>
+          <button class="viewer-btn viewer-close-btn" onclick="ui.closeViewer()">✕</button>
+        </div>
+      </div>
+      <div class="viewer-content-wrapper">
+        <article id="viewer-article" class="viewer-article">
+        </article>
+      </div>
+    </div>
+
     <div id="toast" class="toast"></div>
   </div>
 

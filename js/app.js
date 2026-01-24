@@ -71,6 +71,15 @@ function setupGlobalErrorHandling() {
     console.error('全局错误:', event.error)
     event.preventDefault()
   })
+
+  window.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') {
+      const viewerModal = document.getElementById('modal-viewer')
+      if (!viewerModal.classList.contains('hidden')) {
+        ui.closeViewer()
+      }
+    }
+  })
 }
 
 function showAnalysisModal(diaryId) {
