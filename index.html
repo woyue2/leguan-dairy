@@ -37,6 +37,19 @@
           <button id="btn-back" class="btn btn-secondary btn-small">返回列表</button>
         </div>
         <textarea id="editor-content" class="editor-content" placeholder="今天发生了什么？写下你的心情和想法..."></textarea>
+
+        <div id="analysis-progress" class="analysis-progress hidden">
+          <div class="progress-header">
+            <span class="progress-spinner"></span>
+            <span id="progress-status">正在分析...</span>
+          </div>
+          <div class="progress-bar-container">
+            <div id="progress-bar" class="progress-bar"></div>
+          </div>
+          <div id="progress-info" class="progress-info">准备中</div>
+          <button id="btn-cancel-analysis" class="btn btn-secondary btn-small">取消</button>
+        </div>
+
         <div class="editor-footer">
           <span id="word-count" class="word-count">0 字</span>
           <button id="btn-save" class="btn btn-primary">保存并分析</button>

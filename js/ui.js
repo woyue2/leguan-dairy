@@ -150,51 +150,46 @@ class UIManager {
         this.currentDiaryId = diary.id
       }
 
-      this.showToast('保存成功，正在分析...')
+      this.showToast('保存成功')
+      this.showAnalysisProgress()
 
       const offline = new OfflineQueue()
       if (!navigator.onLine) {
+        this.hideAnalysisProgress()
         offline.add(offline.createAnalysisTask(content, diary.id))
         this.showToast('已加入离线队列，有网时自动分析')
         this.renderDiaryList()
         return
       }
 
-      let result
-      let retries = 0
-      const maxRetries = 3
+      const api = new ZhipuAPI()
 
-      while (retries < maxRetries) {
-        try {
-          const api = new ZhipuAPI()
-          result = await api.analyze(content)
-          break
-        } catch (error) {
-          if (error.message.includes('请求频率') && retries < maxRetries - 1) {
-            retries++
-            const waitTime = Math.pow(2, retries)
-            this.showToast(`请求频繁，等待${waitTime}秒后自动重试(${retries}/${maxRetries})`)
-            await this.delay(waitTime * 1000)
-          } else if (error.message.includes('网络')) {
-            throw error
-          } else if (retries >= maxRetries - 1) {
-            throw error
-          }
+      try {
+        const result = await api.analyze(content, (percent, status, info) => {
+          this.updateProgress(percent, status, info)
+        })
+        this.hideAnalysisProgress()
+        storage.saveAnalysis(diary.id, result)
+        this.showAnalysisModal(diary.id, result)
+        this.renderDiaryList()
+      } catch (error) {
+        this.hideAnalysisProgress()
+        if (error.message.includes('请求频率')) {
+          this.showToast(error.message)
+        } else if (error.message.includes('网络') || error.message.includes('取消')) {
+          const offline = new OfflineQueue()
+          offline.add(offline.createAnalysisTask(content, diary?.id))
+          this.showToast('网络问题，已加入离线队列')
+        } else if (error.message.includes('超时')) {
+          this.showToast('分析超时，请重试')
+        } else {
+          this.showToast(error.message)
         }
       }
 
-      storage.saveAnalysis(diary.id, result)
-      this.showAnalysisModal(diary.id, result)
-      this.renderDiaryList()
-
     } catch (error) {
-      if (error.message.includes('网络')) {
-        const offline = new OfflineQueue()
-        offline.add(offline.createAnalysisTask(content, diary?.id))
-        this.showToast('网络断开，已加入离线队列')
-      } else {
-        this.showToast(error.message)
-      }
+      this.hideAnalysisProgress()
+      this.showToast(error.message)
     }
   }
 
@@ -383,5 +378,54 @@ class UIManager {
     const div = document.createElement('div')
     div.textContent = text
     return div.innerHTML
+  }
+
+  showAnalysisProgress() {
+    const progressPanel = document.getElementById('analysis-progress')
+    if (progressPanel) {
+      progressPanel.classList.remove('hidden')
+      this.updateProgress(0, '正在发送请求...', '准备分析')
+    }
+    this.bindCancelAnalysis()
+  }
+
+  hideAnalysisProgress() {
+    const progressPanel = document.getElementById('analysis-progress')
+    if (progressPanel) {
+      progressPanel.classList.add('hidden')
+    }
+  }
+
+  updateProgress(percent, statusText, infoText) {
+    const progressBar = document.getElementById('progress-bar')
+    const progressStatus = document.getElementById('progress-status')
+    const progressInfo = document.getElementById('progress-info')
+
+    if (progressBar) {
+      progressBar.style.width = `${Math.min(percent, 100)}%`
+    }
+    if (progressStatus) {
+      progressStatus.textContent = statusText || '正在分析...'
+    }
+    if (progressInfo) {
+      progressInfo.textContent = infoText || ''
+    }
+  }
+
+  setProgressStatus(statusText) {
+    const progressStatus = document.getElementById('progress-status')
+    if (progressStatus) {
+      progressStatus.textContent = statusText
+    }
+  }
+
+  bindCancelAnalysis() {
+    const btnCancel = document.getElementById('btn-cancel-analysis')
+    if (btnCancel) {
+      btnCancel.onclick = () => {
+        this.hideAnalysisProgress()
+        this.showToast('已取消分析')
+      }
+    }
   }
 }
