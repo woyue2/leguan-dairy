@@ -42,7 +42,9 @@ class DiaryStorage {
       analysis: diary.analysis || null,
       finalVersion: diary.finalVersion || diary.content,
       original_content: diary.original_content || null,
-      structured_version: diary.structured_version || null
+      structured_version: diary.structured_version || null,
+      images: diary.images || [],
+      footer_images: diary.footer_images || []
     }
 
     diaries.unshift(newDiary)
@@ -236,29 +238,18 @@ class DiaryStorage {
   createWeekly(weekly) {
     const weeklies = this.getAllWeekly()
     const newWeekly = {
-      id: weekly.id || `weekly_${weekly.year}-W${weekly.weekNumber}`,
-      year: weekly.year,
-      weekNumber: weekly.weekNumber,
-      startDate: weekly.startDate,
-      endDate: weekly.endDate,
-      diaryIds: weekly.diaryIds || [],
+      id: weekly.id || `weekly_${Date.now()}`,
       summary: weekly.summary || '',
       title: weekly.title || '',
-      images: Array.isArray(weekly.images) ? weekly.images : [],
+      images: weekly.images || [],
+      footer_images: weekly.footer_images || [],
+      startDate: weekly.startDate,
+      endDate: weekly.endDate,
       createdAt: new Date().toISOString(),
       regenerations: 0
     }
 
-    const existingIndex = weekly.id
-      ? weeklies.findIndex(w => w.id === weekly.id)
-      : weeklies.findIndex(w => w.year === weekly.year && w.weekNumber === weekly.weekNumber)
-
-    if (existingIndex >= 0) {
-      weeklies[existingIndex] = newWeekly
-    } else {
-      weeklies.unshift(newWeekly)
-    }
-
+    weeklies.unshift(newWeekly)
     this.saveAllWeekly(weeklies)
     return newWeekly
   }

@@ -2,10 +2,12 @@ class UIManager {
   constructor() {
     this.currentDiaryId = null
     this.currentImages = []
+    this.currentFooterImages = []
     this.currentStructuredContent = ''
     this.structureTargetType = 'diary'
     this.structureTargetId = null
     this.weeklyImages = []
+    this.weeklyFooterImages = []
     this.imageInsertTarget = 'diary'
     this.uploadTarget = 'diary'
     this.lastUploadFile = null
@@ -65,6 +67,7 @@ class UIManager {
       toast: document.getElementById('toast'),
       btnInsertImage: document.getElementById('btn-insert-image'),
       btnUploadImage: document.getElementById('btn-upload-image'),
+      btnUploadImageFooter: document.getElementById('btn-upload-image-footer'),
       modalInsertImage: document.getElementById('modal-insert-image'),
       btnCloseImageModal: document.getElementById('btn-close-image-modal'),
       btnCancelInsert: document.getElementById('btn-cancel-insert'),
@@ -75,11 +78,19 @@ class UIManager {
       imageUploadText: document.getElementById('image-upload-text'),
       btnRetryUpload: document.getElementById('btn-retry-upload'),
       editorImages: document.getElementById('editor-images'),
+      editorImagesLabel: document.getElementById('editor-images-label'),
+      editorFooterImages: document.getElementById('editor-footer-images'),
+      editorFooterImagesLabel: document.getElementById('editor-footer-images-label'),
       btnWeeklyInsertImage: document.getElementById('btn-weekly-insert-image'),
       btnWeeklyUploadImage: document.getElementById('btn-weekly-upload-image'),
+      btnWeeklyUploadImageFooter: document.getElementById('btn-weekly-upload-image-footer'),
       weeklyEditorSummary: document.getElementById('weekly-editor-summary'),
       weeklyEditorImages: document.getElementById('weekly-editor-images'),
+      weeklyEditorImagesLabel: document.getElementById('weekly-editor-images-label'),
+      weeklyEditorFooterImages: document.getElementById('weekly-editor-footer-images'),
+      weeklyEditorFooterImagesLabel: document.getElementById('weekly-editor-footer-images-label'),
       weeklyResultImages: document.getElementById('weekly-result-images'),
+      weeklyResultFooterImages: document.getElementById('weekly-result-footer-images'),
       weeklyUploadStatus: document.getElementById('weekly-upload-status'),
       weeklyUploadText: document.getElementById('weekly-upload-text'),
       btnWeeklyRetryUpload: document.getElementById('btn-weekly-retry-upload'),
@@ -135,11 +146,17 @@ class UIManager {
     if (this.elements.btnUploadImage) {
       this.elements.btnUploadImage.addEventListener('click', () => this.openImageUpload('diary'))
     }
+    if (this.elements.btnUploadImageFooter) {
+      this.elements.btnUploadImageFooter.addEventListener('click', () => this.openImageUpload('diary-footer'))
+    }
     if (this.elements.btnWeeklyInsertImage) {
       this.elements.btnWeeklyInsertImage.addEventListener('click', () => this.showInsertImageModal('weekly'))
     }
     if (this.elements.btnWeeklyUploadImage) {
       this.elements.btnWeeklyUploadImage.addEventListener('click', () => this.openImageUpload('weekly'))
+    }
+    if (this.elements.btnWeeklyUploadImageFooter) {
+      this.elements.btnWeeklyUploadImageFooter.addEventListener('click', () => this.openImageUpload('weekly-footer'))
     }
     if (this.elements.btnCloseImageModal) {
       this.elements.btnCloseImageModal.addEventListener('click', () => this.hideInsertImageModal())
@@ -168,8 +185,14 @@ class UIManager {
     if (this.elements.editorImages) {
       this.elements.editorImages.addEventListener('click', (e) => this.handleRemoveImage(e))
     }
+    if (this.elements.editorFooterImages) {
+      this.elements.editorFooterImages.addEventListener('click', (e) => this.handleRemoveFooterImage(e))
+    }
     if (this.elements.weeklyEditorImages) {
       this.elements.weeklyEditorImages.addEventListener('click', (e) => this.handleRemoveWeeklyImage(e))
+    }
+    if (this.elements.weeklyEditorFooterImages) {
+      this.elements.weeklyEditorFooterImages.addEventListener('click', (e) => this.handleRemoveWeeklyFooterImage(e))
     }
     if (this.elements.btnCloseStructure) {
       this.elements.btnCloseStructure.addEventListener('click', () => this.hideStructureModal())
@@ -302,6 +325,7 @@ class UIManager {
 
     this.lastUploadFile = file
     this.lastUploadTarget = target
+    this.setUploadInputLocked(target, true)
 
     const api = new ZhipuAPI()
     const maxSizeBytes = Config.imgurl.maxSizeMB * 1024 * 1024
@@ -351,17 +375,15 @@ class UIManager {
       } else {
         this.showUploadStatus(target, '上传失败', true)
       }
+    } finally {
+      this.setUploadInputLocked(target, false)
     }
   }
 
   addUploadedImage(url, target) {
-    const textLine = `img:${url}\n`
     if (target === 'weekly') {
       if (!this.weeklyImages.includes(url)) {
         this.weeklyImages.push(url)
-      }
-      if (this.elements.weeklyEditorSummary) {
-        this.insertTextAtCursor(this.elements.weeklyEditorSummary, textLine)
       }
       if (this.currentWeeklyData) {
         this.currentWeeklyData = {
@@ -373,14 +395,46 @@ class UIManager {
       return
     }
 
+    if (target === 'weekly-footer') {
+      if (!this.weeklyFooterImages.includes(url)) {
+        this.weeklyFooterImages.push(url)
+      }
+      if (this.currentWeeklyData) {
+        this.currentWeeklyData = {
+          ...this.currentWeeklyData,
+          footer_images: [...this.weeklyFooterImages]
+        }
+      }
+      this.updateWeeklyFooterImagePreview()
+      return
+    }
+
+    if (target === 'diary-footer') {
+      if (!this.currentFooterImages.includes(url)) {
+        this.currentFooterImages.push(url)
+      }
+      this.updateWordCount()
+      this.updateFooterImagePreview()
+      return
+    }
+
     if (!this.currentImages.includes(url)) {
       this.currentImages.push(url)
     }
-    if (this.elements.editorContent) {
-      this.insertTextAtCursor(this.elements.editorContent, textLine)
-    }
     this.updateWordCount()
     this.updateImagePreview()
+  }
+
+  setUploadInputLocked(target, locked) {
+    if (target === 'weekly') {
+      if (this.elements.weeklyEditorSummary) {
+        this.elements.weeklyEditorSummary.readOnly = locked
+      }
+      return
+    }
+    if (this.elements.editorContent) {
+      this.elements.editorContent.readOnly = locked
+    }
   }
 
   insertTextAtCursor(textarea, text) {
@@ -506,6 +560,7 @@ class UIManager {
         const normalized = this.normalizeDiaryContent(diary)
         this.elements.editorContent.value = normalized.content
         this.currentImages = normalized.images
+        this.currentFooterImages = Array.isArray(diary.footer_images) ? [...diary.footer_images] : []
         this.currentStructuredContent = diary.structured_version || ''
         this.currentDiaryId = diaryId
       }
@@ -513,11 +568,13 @@ class UIManager {
       this.elements.editorTitle.value = ''
       this.elements.editorContent.value = ''
       this.currentImages = []
+      this.currentFooterImages = []
       this.currentStructuredContent = ''
       this.currentDiaryId = null
     }
     this.updateWordCount()
     this.updateImagePreview()
+    this.updateFooterImagePreview()
     this.hideUploadStatus('diary')
     this.bindWordCountEvent()
     this.showView('editor')
@@ -600,8 +657,14 @@ class UIManager {
     const storage = new DiaryStorage()
     let diary
 
+
     try {
-      const updates = { content, title, images: [...this.currentImages] }
+      const updates = { 
+        content, 
+        title, 
+        images: [...this.currentImages],
+        footer_images: [...this.currentFooterImages]
+      }
 
       if (this.currentDiaryId) {
         const existing = storage.getById(this.currentDiaryId)
@@ -628,7 +691,7 @@ class UIManager {
         this.hideAnalysisProgress()
         offline.add(offline.createAnalysisTask(content, diary.id))
         this.showToast('已加入离线队列，有网时自动分析')
-        this.renderDiaryList()
+        this.showList()
         return
       }
 
@@ -641,7 +704,7 @@ class UIManager {
         this.hideAnalysisProgress()
         storage.saveAnalysis(diary.id, result)
         this.showAnalysisModal(diary.id, result)
-        this.renderDiaryList()
+        this.showList()
       } catch (error) {
         this.hideAnalysisProgress()
         if (error.message.includes('请求频率')) {
@@ -680,6 +743,7 @@ class UIManager {
         content,
         title,
         images: [...this.currentImages],
+        footer_images: [...this.currentFooterImages],
         analysis: null,
         finalVersion: null
       }
@@ -698,7 +762,7 @@ class UIManager {
         this.currentDiaryId = diary.id
       }
 
-      this.renderDiaryList()
+      this.showList()
       this.showToast('已保存')
     } catch (error) {
       this.showToast(error.message)
@@ -1112,12 +1176,19 @@ class UIManager {
     this.elements.editorContent.oninput = () => {
       this.updateWordCount()
       this.updateImagePreview()
+      this.updateFooterImagePreview()
     }
   }
 
   updateImagePreview() {
     if (!this.elements.editorImages) return
-    if (this.currentImages.length === 0) {
+    const hasImages = this.currentImages.length > 0
+
+    if (this.elements.editorImagesLabel) {
+      this.elements.editorImagesLabel.classList.toggle('hidden', !hasImages)
+    }
+
+    if (!hasImages) {
       this.elements.editorImages.innerHTML = ''
       this.elements.editorImages.classList.add('hidden')
       return
@@ -1132,9 +1203,38 @@ class UIManager {
     `).join('')
   }
 
+  updateFooterImagePreview() {
+    if (!this.elements.editorFooterImages) return
+    const hasImages = this.currentFooterImages.length > 0
+
+    if (this.elements.editorFooterImagesLabel) {
+      this.elements.editorFooterImagesLabel.classList.toggle('hidden', !hasImages)
+    }
+
+    if (!hasImages) {
+      this.elements.editorFooterImages.innerHTML = ''
+      this.elements.editorFooterImages.classList.add('hidden')
+      return
+    }
+
+    this.elements.editorFooterImages.classList.remove('hidden')
+    this.elements.editorFooterImages.innerHTML = this.currentFooterImages.map(url => `
+      <div class="editor-image-item">
+        <img src="${this.escapeHtml(url)}" alt="图片">
+        <button class="editor-image-remove" data-url="${this.escapeHtml(url)}">×</button>
+      </div>
+    `).join('')
+  }
+
   updateWeeklyImagePreview() {
     if (!this.elements.weeklyEditorImages) return
-    if (this.weeklyImages.length === 0) {
+    const hasImages = this.weeklyImages.length > 0
+
+    if (this.elements.weeklyEditorImagesLabel) {
+      this.elements.weeklyEditorImagesLabel.classList.toggle('hidden', !hasImages)
+    }
+
+    if (!hasImages) {
       this.elements.weeklyEditorImages.innerHTML = ''
       this.elements.weeklyEditorImages.classList.add('hidden')
       return
@@ -1149,21 +1249,59 @@ class UIManager {
     `).join('')
   }
 
-  updateWeeklyResultImages(images) {
-    if (!this.elements.weeklyResultImages) return
-    const list = Array.isArray(images) ? images : []
-    if (list.length === 0) {
-      this.elements.weeklyResultImages.innerHTML = ''
-      this.elements.weeklyResultImages.classList.add('hidden')
+  updateWeeklyFooterImagePreview() {
+    if (!this.elements.weeklyEditorFooterImages) return
+    const hasImages = this.weeklyFooterImages.length > 0
+
+    if (this.elements.weeklyEditorFooterImagesLabel) {
+      this.elements.weeklyEditorFooterImagesLabel.classList.toggle('hidden', !hasImages)
+    }
+
+    if (!hasImages) {
+      this.elements.weeklyEditorFooterImages.innerHTML = ''
+      this.elements.weeklyEditorFooterImages.classList.add('hidden')
       return
     }
 
-    this.elements.weeklyResultImages.classList.remove('hidden')
-    this.elements.weeklyResultImages.innerHTML = list.map(url => `
+    this.elements.weeklyEditorFooterImages.classList.remove('hidden')
+    this.elements.weeklyEditorFooterImages.innerHTML = this.weeklyFooterImages.map(url => `
       <div class="editor-image-item">
         <img src="${this.escapeHtml(url)}" alt="图片">
+        <button class="editor-image-remove" data-url="${this.escapeHtml(url)}">×</button>
       </div>
     `).join('')
+  }
+
+  updateWeeklyResultImages(images, footerImages = []) {
+    if (this.elements.weeklyResultImages) {
+      const list = Array.isArray(images) ? images : []
+      if (list.length === 0) {
+        this.elements.weeklyResultImages.innerHTML = ''
+        this.elements.weeklyResultImages.classList.add('hidden')
+      } else {
+        this.elements.weeklyResultImages.classList.remove('hidden')
+        this.elements.weeklyResultImages.innerHTML = list.map(url => `
+          <div class="editor-image-item">
+            <img src="${this.escapeHtml(url)}" alt="图片">
+          </div>
+        `).join('')
+      }
+    }
+
+    if (this.elements.weeklyResultFooterImages) {
+      const list = Array.isArray(footerImages) ? footerImages : []
+      if (list.length === 0) {
+        this.elements.weeklyResultFooterImages.innerHTML = ''
+        this.elements.weeklyResultFooterImages.classList.add('hidden')
+      } else {
+        this.elements.weeklyResultFooterImages.classList.remove('hidden')
+        this.elements.weeklyResultFooterImages.innerHTML = list.map(url => `
+          <div class="editor-image-item">
+            <img src="${this.escapeHtml(url)}" alt="图片">
+          </div>
+        `).join('')
+      }
+    }
   }
 
   handleRemoveImage(e) {
@@ -1173,6 +1311,16 @@ class UIManager {
     if (!url) return
     this.currentImages = this.currentImages.filter(item => item !== url)
     this.updateImagePreview()
+    this.updateWordCount()
+  }
+
+  handleRemoveFooterImage(e) {
+    const button = e.target.closest('.editor-image-remove')
+    if (!button) return
+    const url = button.dataset.url
+    if (!url) return
+    this.currentFooterImages = this.currentFooterImages.filter(item => item !== url)
+    this.updateFooterImagePreview()
     this.updateWordCount()
   }
 
@@ -1189,6 +1337,21 @@ class UIManager {
       }
     }
     this.updateWeeklyImagePreview()
+  }
+
+  handleRemoveWeeklyFooterImage(e) {
+    const button = e.target.closest('.editor-image-remove')
+    if (!button) return
+    const url = button.dataset.url
+    if (!url) return
+    this.weeklyFooterImages = this.weeklyFooterImages.filter(item => item !== url)
+    if (this.currentWeeklyData) {
+      this.currentWeeklyData = {
+        ...this.currentWeeklyData,
+        footer_images: [...this.weeklyFooterImages]
+      }
+    }
+    this.updateWeeklyFooterImagePreview()
   }
 
   normalizeDiaryContent(diary) {
@@ -1404,6 +1567,7 @@ class UIManager {
     const content = bodyText
     const article = document.getElementById('viewer-article')
     const images = normalized.images
+    const footerImages = Array.isArray(diary.footer_images) ? diary.footer_images : []
 
     const paragraphs = content.split('\n').filter(p => p.trim())
 
@@ -1427,10 +1591,16 @@ class UIManager {
         html += `<p class="viewer-content">${this.escapeHtml(para)}</p>`
       }
 
-      if (index > 0 && index % 3 === 0 && index < paragraphs.length - 1) {
-        html += `<div class="viewer-chapter-divider">第 ${Math.floor(index / 3) + 1} 章</div>`
+      if (index > 0 && index % 20 === 0 && index < paragraphs.length - 1) {
+        html += `<div class="viewer-chapter-divider">第 ${Math.floor(index / 20) + 1} 章</div>`
       }
     })
+
+    if (footerImages.length > 0) {
+      html += footerImages.map(url => `
+        <img src="${this.escapeHtml(url)}" onerror="this.outerHTML='<div class=\\'image-placeholder\\'>图片加载失败</div>'">
+      `).join('')
+    }
 
     if (treeText) {
       html += `<div class="viewer-tree-title">目录树</div>`
@@ -1453,6 +1623,7 @@ class UIManager {
     const summary = (weekly.summary || '').trim()
     const paragraphs = summary ? summary.split(/\n+/).map(p => p.trim()).filter(Boolean) : []
     const images = Array.isArray(weekly.images) ? weekly.images : []
+    const footerImages = Array.isArray(weekly.footer_images) ? weekly.footer_images : []
 
     let html = `
       <h1 class="viewer-title">${this.escapeHtml(weekly.title || '无标题')}</h1>
@@ -1477,6 +1648,12 @@ class UIManager {
           html += `<p class="viewer-content">${this.escapeHtml(para)}</p>`
         }
       })
+    }
+
+    if (footerImages.length > 0) {
+      html += footerImages.map(url => `
+        <img src="${this.escapeHtml(url)}" onerror="this.outerHTML='<div class=\\'image-placeholder\\'>图片加载失败</div>'">
+      `).join('')
     }
 
     article.innerHTML = html
@@ -1753,10 +1930,12 @@ class UIManager {
     if (summaryEl) summaryEl.textContent = summary
     if (this.currentWeeklyData) {
       const images = Array.isArray(this.currentWeeklyData.images) ? [...this.currentWeeklyData.images] : []
+      const footerImages = Array.isArray(this.currentWeeklyData.footer_images) ? [...this.currentWeeklyData.footer_images] : []
       this.weeklyImages = images
-      this.updateWeeklyResultImages(images)
+      this.weeklyFooterImages = footerImages
+      this.updateWeeklyResultImages(images, footerImages)
     } else {
-      this.updateWeeklyResultImages([])
+      this.updateWeeklyResultImages([], [])
     }
   }
 
@@ -2072,9 +2251,11 @@ class UIManager {
         diaryIds: diaries.map(d => d.id),
         title: result.title,
         summary: result.summary,
-        images: []
+        images: [],
+        footer_images: []
       }
       this.weeklyImages = []
+      this.weeklyFooterImages = []
 
       this.showWeeklyResult(result.title, result.summary)
       this.bindWeeklyModalEvents()
@@ -2212,7 +2393,8 @@ class UIManager {
     const storage = new DiaryStorage()
     this.currentWeeklyData = {
       ...this.currentWeeklyData,
-      images: [...this.weeklyImages]
+      images: [...this.weeklyImages],
+      footer_images: [...this.weeklyFooterImages]
     }
     const weekly = storage.createWeekly(this.currentWeeklyData)
 
@@ -2275,7 +2457,9 @@ class UIManager {
     if (titleInput) titleInput.value = weekly.title || ''
     if (summaryInput) summaryInput.value = weekly.summary || ''
     this.weeklyImages = Array.isArray(weekly.images) ? [...weekly.images] : []
+    this.weeklyFooterImages = Array.isArray(weekly.footer_images) ? [...weekly.footer_images] : []
     this.updateWeeklyImagePreview()
+    this.updateWeeklyFooterImagePreview()
 
     const btnCancel = document.getElementById('btn-cancel-weekly-edit')
     const btnSave = document.getElementById('btn-save-weekly-edit')
@@ -2309,11 +2493,13 @@ class UIManager {
 
     const finalTitle = titleValue || this.currentWeeklyData?.title || '无标题'
     const images = [...this.weeklyImages]
+    const footerImages = [...this.weeklyFooterImages]
     this.currentWeeklyData = {
       ...this.currentWeeklyData,
       title: finalTitle,
       summary: summaryValue,
-      images
+      images,
+      footer_images: footerImages
     }
 
     if (this.weeklyEditingExisting) {
@@ -2321,7 +2507,8 @@ class UIManager {
       storage.updateWeekly(this.currentWeeklyData.id, {
         title: finalTitle,
         summary: summaryValue,
-        images
+        images,
+        footer_images: footerImages
       })
       this.hideWeeklyModal()
       this.renderWeeklyList()

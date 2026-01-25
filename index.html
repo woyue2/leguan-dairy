@@ -56,15 +56,19 @@
         </div>
         <div class="editor-toolbar">
           <button id="btn-insert-image" class="btn btn-secondary btn-small" title="插入图片">📷 插入图片</button>
-          <button id="btn-upload-image" class="btn btn-secondary btn-small" title="上传图片">⬆️ 上传图片</button>
+          <button id="btn-upload-image" class="btn btn-secondary btn-small" title="上传顶部图片">⬆️ 顶部图片</button>
+          <button id="btn-upload-image-footer" class="btn btn-secondary btn-small" title="上传底部图片">⬇️ 底部图片</button>
           <button id="btn-view-original" class="btn btn-secondary btn-small">查看原文</button>
         </div>
         <div id="image-upload-status" class="upload-status hidden">
           <span id="image-upload-text">上传中 0%</span>
           <button id="btn-retry-upload" class="btn btn-secondary btn-small hidden">重试</button>
         </div>
+        <div id="editor-images-label" class="images-label hidden">顶部图片</div>
         <div id="editor-images" class="editor-images hidden"></div>
         <textarea id="editor-content" class="editor-content" placeholder="今天发生了什么？写下你的心情和想法..."></textarea>
+        <div id="editor-footer-images-label" class="images-label hidden">底部图片</div>
+        <div id="editor-footer-images" class="editor-images hidden"></div>
 
         <div id="analysis-progress" class="analysis-progress hidden">
           <div class="progress-header">
@@ -83,7 +87,7 @@
           <div class="editor-actions">
             <button id="btn-save" class="btn btn-primary">乐观分析</button>
             <button id="btn-structure" class="btn btn-secondary">结构优化</button>
-            <button id="btn-save-only" class="btn btn-secondary">仅保存</button>
+            <button id="btn-save-only" class="btn btn-secondary">保存</button>
           </div>
         </div>
       </div>
@@ -275,14 +279,18 @@
             <label class="weekly-editor-label">周记内容</label>
             <div class="editor-toolbar">
               <button id="btn-weekly-insert-image" class="btn btn-secondary btn-small" title="插入图片">📷 插入图片</button>
-              <button id="btn-weekly-upload-image" class="btn btn-secondary btn-small" title="上传图片">⬆️ 上传图片</button>
+              <button id="btn-weekly-upload-image" class="btn btn-secondary btn-small" title="上传顶部图片">⬆️ 顶部图片</button>
+              <button id="btn-weekly-upload-image-footer" class="btn btn-secondary btn-small" title="上传底部图片">⬇️ 底部图片</button>
             </div>
             <div id="weekly-upload-status" class="upload-status hidden">
               <span id="weekly-upload-text">上传中 0%</span>
               <button id="btn-weekly-retry-upload" class="btn btn-secondary btn-small hidden">重试</button>
             </div>
+            <div id="weekly-editor-images-label" class="images-label hidden">顶部图片</div>
             <div id="weekly-editor-images" class="editor-images hidden"></div>
             <textarea id="weekly-editor-summary" class="editor-content weekly-editor-textarea" placeholder="输入周记内容"></textarea>
+            <div id="weekly-editor-footer-images-label" class="images-label hidden">底部图片</div>
+            <div id="weekly-editor-footer-images" class="editor-images hidden"></div>
           </div>
           <div id="weekly-progress" class="weekly-progress hidden">
             <div class="progress-header">
@@ -298,6 +306,7 @@
             <div id="weekly-title" class="weekly-title"></div>
             <div id="weekly-result-images" class="editor-images hidden"></div>
             <div id="weekly-summary" class="weekly-summary"></div>
+            <div id="weekly-result-footer-images" class="editor-images hidden"></div>
           </div>
           <div id="weekly-empty" class="weekly-empty hidden">
           </div>
