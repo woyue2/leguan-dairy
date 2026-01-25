@@ -1,7 +1,18 @@
 # imgurl-upload Specification
 
 ## Purpose
-TBD - created by archiving change add-imgurl-upload. Update Purpose after archive.
+Provide image upload capability via ImgURL image bed, supporting both header and footer image positions for diary and weekly entries.
+
+## Implementation Status
+- ✅ ImgURL configuration (base_url, uid, token)
+- ✅ Image upload entry
+- ✅ Image selection and format validation
+- ✅ Image compression (<3MB)
+- ✅ Image upload to ImgURL
+- ✅ ImgURL API compliance
+- ✅ Header images (top position)
+- ✅ Footer images (bottom position)
+- ✅ Support for both diary and weekly entries
 ## Requirements
 ### Requirement: 图床配置
 系统 SHALL 允许用户配置 ImgURL 图床的 base_url、uid 和 token。
@@ -121,4 +132,48 @@ TBD - created by archiving change add-imgurl-upload. Update Purpose after archiv
 - **THEN** 提取 data.url 字段
 - **AND** 将 URL 转换为 `img:URL` 格式
 - **AND** 插入到编辑器光标位置
+
+## ADDED Requirements
+### Requirement: 底部图片上传
+系统 SHALL 支持上传图片到底部位置（内容下方）。
+
+#### Scenario: 显示底部上传按钮
+- **WHEN** 用户打开日记或周记编辑器
+- **THEN** 工具栏显示两个上传按钮：
+  - "⬆️ 顶部图片" - 头部图片上传（已有功能）
+  - "⬇️ 底部图片" - 底部图片上传（新增功能）
+
+#### Scenario: 底部图片上传流程
+- **WHEN** 用户点击底部上传按钮
+- **THEN** 打开文件选择器（accept="image/*"）
+- **AND** 使用 currentFooterImages 数组存储底部图片
+- **AND** 在编辑器内容下方显示底部图片
+- **AND** 在存储中保存 footer_images 字段
+
+#### Scenario: 底部图片显示
+- **WHEN** 查看带有底部图片的日记/周记
+- **THEN** 显示带有"底部图片"标签的图片区域
+- **AND** 在主要内容下方展示图片
+
+#### Scenario: 底部图片存储
+- **WHEN** 保存日记或周记
+- **THEN** 将 footer_images 数组保存到 localStorage
+- **AND** 在数据结构中包含 footer_images 字段
+- **AND** 加载条目时读取 footer_images
+
+### Requirement: 图片位置管理
+系统 SHALL 为头部和底部位置维护独立的图片数组。
+
+#### Scenario: 维护独立数组
+- **WHEN** 上传头部图片
+- **THEN** 添加到 currentImages 数组
+- **WHEN** 上传底部图片
+- **THEN** 添加到 currentFooterImages 数组
+- **AND** 在各自位置显示图片
+
+#### Scenario: 编辑带图片的条目
+- **WHEN** 加载现有条目进行编辑
+- **THEN** 用 entry.images 填充 currentImages
+- **AND** 用 entry.footer_images 填充 currentFooterImages
+- **AND** 显示两个图片区域
 
