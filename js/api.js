@@ -83,6 +83,71 @@ class ZhipuAPI {
     }
   }
 
+  async analyzeStructure(content, onProgress) {
+    const cleanedContent = this.stripImageLines(content || '')
+    if (!cleanedContent || cleanedContent.trim().length < Config.validation.minContentLength) {
+      throw new Error('内容太短，无法优化结构')
+    }
+
+    if (!Config.hasApiKey()) {
+      throw new Error('请先设置智谱AI API Key')
+    }
+
+    if (!navigator.onLine) {
+      throw new Error('网络连接已断开')
+    }
+
+    this.controller = new AbortController()
+    const timeoutId = setTimeout(() => this.controller.abort(), this.config.timeout)
+
+    if (onProgress) {
+      onProgress(10, '准备结构优化...', '正在发送请求')
+    }
+
+    try {
+      const response = await fetch(this.config.baseUrl, {
+        method: 'POST',
+        headers: this.getHeaders(),
+        body: JSON.stringify({
+          model: this.config.model,
+          messages: [
+            {
+              role: 'system',
+              content: Config.getStructureSystemPrompt()
+            },
+            {
+              role: 'user',
+              content: cleanedContent
+            }
+          ],
+          temperature: 0.4,
+          max_tokens: 2000
+        }),
+        signal: this.controller.signal
+      })
+
+      clearTimeout(timeoutId)
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        throw this.handleErrorResponse(response.status, errorData)
+      }
+
+      if (onProgress) {
+        onProgress(70, '正在生成优化结果...', '即将完成')
+      }
+
+      const data = await response.json()
+      return this.parseStructureResponse(data)
+    } catch (error) {
+      clearTimeout(timeoutId)
+      if (error.name === 'AbortError') {
+        throw new Error('请求超时，请重试')
+      }
+      throw error
+    }
+  }
+
   delay(ms) {
     return new Promise(resolve => setTimeout(resolve, ms))
   }
@@ -134,6 +199,45 @@ class ZhipuAPI {
       }
       console.error('解析响应失败:', error)
       throw new Error('解析分析结果失败')
+    }
+  }
+
+  parseStructureResponse(data) {
+    const content = data.choices?.[0]?.message?.content
+    if (!content) {
+      throw new Error('API返回数据格式错误')
+    }
+
+    const trimmed = content.trim()
+    const jsonMatch = trimmed.match(/\{[\s\S]*\}/)
+
+    if (jsonMatch) {
+      const parsed = (() => {
+        try {
+          return JSON.parse(jsonMatch[0])
+        } catch (error) {
+          return null
+        }
+      })()
+      if (parsed) {
+        const structured = parsed.structured_version || parsed.content || parsed.result
+        if (structured) {
+          return {
+            structured_version: String(structured).trim(),
+            raw_response: trimmed
+          }
+        }
+      }
+    }
+
+    const withoutFence = trimmed
+      .replace(/^```[a-zA-Z]*\n?/, '')
+      .replace(/```$/, '')
+      .trim()
+
+    return {
+      structured_version: withoutFence,
+      raw_response: trimmed
     }
   }
 

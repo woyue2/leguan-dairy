@@ -2,6 +2,7 @@ class UIManager {
   constructor() {
     this.currentDiaryId = null
     this.currentImages = []
+    this.currentStructuredContent = ''
     this.elements = {}
     this.isInsertImageMode = false
     this.init()
@@ -25,6 +26,8 @@ class UIManager {
       btnBack: document.getElementById('btn-back'),
       btnSave: document.getElementById('btn-save'),
       btnSaveOnly: document.getElementById('btn-save-only'),
+      btnStructure: document.getElementById('btn-structure'),
+      btnViewOriginal: document.getElementById('btn-view-original'),
       btnApiKey: document.getElementById('btn-api-key'),
       btnWeekly: document.getElementById('btn-weekly'),
       btnBackToList: document.getElementById('btn-back-to-list'),
@@ -36,10 +39,19 @@ class UIManager {
       statusQueue: document.getElementById('status-queue'),
       statusCount: document.getElementById('status-count'),
       modalAnalysis: document.getElementById('modal-analysis'),
+      modalStructure: document.getElementById('modal-structure'),
+      modalOriginal: document.getElementById('modal-original'),
       modalSettings: document.getElementById('modal-settings'),
       modalWeekly: document.getElementById('modal-weekly'),
       analysisContent: document.getElementById('analysis-content'),
       analysisRewritten: document.getElementById('analysis-rewritten'),
+      structureContent: document.getElementById('structure-content'),
+      originalContent: document.getElementById('original-content'),
+      btnCloseStructure: document.getElementById('btn-close-structure'),
+      btnUseStructure: document.getElementById('btn-use-structure'),
+      btnCancelStructure: document.getElementById('btn-cancel-structure'),
+      btnCloseOriginal: document.getElementById('btn-close-original'),
+      btnCloseOriginalFooter: document.getElementById('btn-close-original-footer'),
       settingsApiKey: document.getElementById('settings-api-key'),
       toast: document.getElementById('toast'),
       btnInsertImage: document.getElementById('btn-insert-image'),
@@ -68,6 +80,12 @@ class UIManager {
     if (this.elements.btnSaveOnly) {
       this.elements.btnSaveOnly.addEventListener('click', () => this.handleSaveOnly())
     }
+    if (this.elements.btnStructure) {
+      this.elements.btnStructure.addEventListener('click', () => this.handleStructureAnalysis())
+    }
+    if (this.elements.btnViewOriginal) {
+      this.elements.btnViewOriginal.addEventListener('click', () => this.showOriginalModal())
+    }
     if (this.elements.btnApiKey) {
       this.elements.btnApiKey.addEventListener('click', () => this.saveApiKey())
     }
@@ -94,6 +112,21 @@ class UIManager {
     }
     if (this.elements.editorImages) {
       this.elements.editorImages.addEventListener('click', (e) => this.handleRemoveImage(e))
+    }
+    if (this.elements.btnCloseStructure) {
+      this.elements.btnCloseStructure.addEventListener('click', () => this.hideStructureModal())
+    }
+    if (this.elements.btnCancelStructure) {
+      this.elements.btnCancelStructure.addEventListener('click', () => this.hideStructureModal())
+    }
+    if (this.elements.btnUseStructure) {
+      this.elements.btnUseStructure.addEventListener('click', () => this.saveStructuredVersion())
+    }
+    if (this.elements.btnCloseOriginal) {
+      this.elements.btnCloseOriginal.addEventListener('click', () => this.hideOriginalModal())
+    }
+    if (this.elements.btnCloseOriginalFooter) {
+      this.elements.btnCloseOriginalFooter.addEventListener('click', () => this.hideOriginalModal())
     }
   }
 
@@ -170,12 +203,14 @@ class UIManager {
         const normalized = this.normalizeDiaryContent(diary)
         this.elements.editorContent.value = normalized.content
         this.currentImages = normalized.images
+        this.currentStructuredContent = diary.structured_version || ''
         this.currentDiaryId = diaryId
       }
     } else {
       this.elements.editorTitle.value = ''
       this.elements.editorContent.value = ''
       this.currentImages = []
+      this.currentStructuredContent = ''
       this.currentDiaryId = null
     }
     this.updateWordCount()
@@ -222,9 +257,6 @@ class UIManager {
             </div>
             <p class="diary-card-preview">${this.escapeHtml(previewText)}...</p>
             <div class="diary-card-footer">
-              <span class="diary-card-status ${diary.isAnalyzed ? 'analyzed' : ''}">
-                ${diary.isAnalyzed ? '已分析' : '未分析'}
-              </span>
               <div class="diary-card-actions">
                 <button class="btn-small" onclick="ui.showViewer('${diary.id}')">查看</button>
                 <button class="btn-small" onclick="ui.showEditor('${diary.id}')">编辑</button>
@@ -252,6 +284,16 @@ class UIManager {
 
     try {
       const updates = { content, title, images: [...this.currentImages] }
+
+      if (this.currentDiaryId) {
+        const existing = storage.getById(this.currentDiaryId)
+        if (existing && !existing.original_content) {
+          updates.original_content = existing.content || content
+        }
+        if (existing?.structured_version) {
+          updates.structured_version = content
+        }
+      }
 
       if (this.currentDiaryId) {
         diary = storage.update(this.currentDiaryId, updates)
@@ -321,11 +363,17 @@ class UIManager {
         title,
         images: [...this.currentImages],
         analysis: null,
-        isAnalyzed: false,
         finalVersion: null
       }
 
       if (this.currentDiaryId) {
+        const existing = storage.getById(this.currentDiaryId)
+        if (existing && !existing.original_content) {
+          updates.original_content = existing.content || content
+        }
+        if (existing?.structured_version) {
+          updates.structured_version = content
+        }
         storage.update(this.currentDiaryId, updates)
       } else {
         const diary = storage.create(updates)
@@ -339,14 +387,123 @@ class UIManager {
     }
   }
 
+  async handleStructureAnalysis() {
+    const content = this.elements.editorContent.value.trim()
+    if (content.length < Config.validation.minContentLength) {
+      this.showToast('内容太短，至少需要5个字符')
+      return
+    }
+
+    const api = new ZhipuAPI()
+    this.showStructureProgress(() => api.abort())
+
+    try {
+      const result = await api.analyzeStructure(content, (percent, status, info) => {
+        this.updateProgress(percent, status, info)
+      })
+      this.hideAnalysisProgress()
+      this.currentStructuredContent = result.structured_version || ''
+      this.showStructureModal(this.currentStructuredContent)
+    } catch (error) {
+      this.hideAnalysisProgress()
+      if (error.message.includes('请求频率')) {
+        this.showToast(error.message)
+      } else if (error.message.includes('网络') || error.message.includes('取消')) {
+        this.showToast('网络问题，请稍后重试')
+      } else if (error.message.includes('超时')) {
+        this.showToast('结构优化超时，请重试')
+      } else {
+        this.showToast(error.message)
+      }
+    }
+  }
+
+  showStructureModal(content) {
+    if (this.elements.structureContent) {
+      this.elements.structureContent.innerHTML = this.renderStructureContent(content)
+    }
+    if (this.elements.modalStructure) {
+      this.elements.modalStructure.classList.remove('hidden')
+    }
+  }
+
+  hideStructureModal() {
+    if (this.elements.modalStructure) {
+      this.elements.modalStructure.classList.add('hidden')
+    }
+  }
+
+  saveStructuredVersion() {
+    if (!this.currentStructuredContent) {
+      this.showToast('没有可保存的优化内容')
+      return
+    }
+
+    const storage = new DiaryStorage()
+    const title = this.elements.editorTitle.value.trim() ||
+      this.extractTitle(this.currentStructuredContent)
+
+    if (this.currentDiaryId) {
+      const existing = storage.getById(this.currentDiaryId)
+      const updates = {
+        structured_version: this.currentStructuredContent,
+        finalVersion: this.currentStructuredContent
+      }
+      if (existing && !existing.original_content) {
+        updates.original_content = existing.content || this.elements.editorContent.value.trim()
+      }
+      storage.update(this.currentDiaryId, updates)
+    } else {
+      const diary = storage.create({
+        title,
+        content: this.elements.editorContent.value.trim(),
+        original_content: this.elements.editorContent.value.trim(),
+        structured_version: this.currentStructuredContent,
+        finalVersion: this.currentStructuredContent,
+        images: [...this.currentImages]
+      })
+      this.currentDiaryId = diary.id
+    }
+
+    this.elements.editorContent.value = this.currentStructuredContent
+    this.updateWordCount()
+    this.hideStructureModal()
+    this.renderDiaryList()
+    this.showToast('结构优化已保存')
+  }
+
+  showOriginalModal() {
+    if (!this.currentDiaryId) {
+      this.showToast('暂无可查看的原文')
+      return
+    }
+    const storage = new DiaryStorage()
+    const diary = storage.getById(this.currentDiaryId)
+    if (!diary) {
+      this.showToast('日记不存在')
+      return
+    }
+    const original = diary.original_content || diary.content || ''
+    if (this.elements.originalContent) {
+      this.elements.originalContent.textContent = original
+    }
+    if (this.elements.modalOriginal) {
+      this.elements.modalOriginal.classList.remove('hidden')
+    }
+  }
+
+  hideOriginalModal() {
+    if (this.elements.modalOriginal) {
+      this.elements.modalOriginal.classList.add('hidden')
+    }
+  }
+
   showAnalysisModal(diaryId, analysis) {
     const storage = new DiaryStorage()
     const diary = storage.getById(diaryId)
 
-    const highlightedContent = this.highlightNegativeSentences(
-      diary.content,
-      analysis
-    )
+    const baseContent = this.getDiaryEffectiveContent(diary)
+    const highlightedContent = this.highlightNegativeSentences(baseContent, analysis)
 
     this.elements.analysisContent.innerHTML = highlightedContent
     this.elements.analysisRewritten.textContent = analysis.rewritten_version
@@ -373,6 +530,42 @@ class UIManager {
       }
       return escaped
     }).join('')
+  }
+
+  splitTreeContent(content) {
+    const text = (content || '').trim()
+    if (!text) {
+      return { bodyText: '', treeText: '' }
+    }
+    const treeMatch = text.match(/\n\s*目录树[:：]\s*\n/i)
+    if (!treeMatch) {
+      return { bodyText: text, treeText: '' }
+    }
+    const splitIndex = treeMatch.index ?? -1
+    if (splitIndex < 0) {
+      return { bodyText: text, treeText: '' }
+    }
+    return {
+      bodyText: text.slice(0, splitIndex).trim(),
+      treeText: text.slice(splitIndex + treeMatch[0].length).trim()
+    }
+  }
+
+  renderStructureContent(content) {
+    const { bodyText, treeText } = this.splitTreeContent(content)
+    if (!bodyText && !treeText) {
+      return ''
+    }
+    const blocks = bodyText.split(/\n{2,}/).map(block => block.trim()).filter(Boolean)
+    const paragraphs = blocks.length > 0 ? blocks : bodyText.split('\n').map(block => block.trim()).filter(Boolean)
+    let html = paragraphs.map(paragraph => `<p class="structure-paragraph">${this.escapeHtml(paragraph)}</p>`).join('')
+
+    if (treeText) {
+      html += `<div class="structure-tree-title">目录树</div>`
+      html += `<pre class="structure-tree">${this.escapeHtml(treeText)}</pre>`
+    }
+
+    return html
   }
 
   bindAnalysisModalEvents(diaryId) {
@@ -402,7 +595,8 @@ class UIManager {
     }
 
     btnKeepOriginal.onclick = handler((id, diary, storage) => {
-      storage.saveFinalVersion(id, diary.content)
+      const baseContent = this.getDiaryEffectiveContent(diary)
+      storage.saveFinalVersion(id, baseContent)
       this.showToast('已保留原文')
     })
 
@@ -412,6 +606,7 @@ class UIManager {
       if (rewritten) {
         storage.update(id, {
           finalVersion: rewritten,
+          structured_version: rewritten,
           title: newTitle || undefined
         })
         this.showToast('已采用改写版本')
@@ -424,13 +619,14 @@ class UIManager {
       const storage = new DiaryStorage()
       const diary = storage.getById(diaryId)
       if (!diary) return
+      const baseContent = this.getDiaryEffectiveContent(diary)
 
       btnRegenerate.disabled = true
       btnRegenerate.textContent = '生成中...'
 
       try {
         const api = new ZhipuAPI()
-        const result = await api.analyze(diary.content, (percent, status, info) => {
+        const result = await api.analyze(baseContent, (percent, status, info) => {
           this.updateProgress(percent, status, info)
         })
 
@@ -531,7 +727,7 @@ class UIManager {
   }
 
   normalizeDiaryContent(diary) {
-    const rawContent = diary.finalVersion || diary.content || ''
+    const rawContent = diary.structured_version || diary.finalVersion || diary.content || ''
     const images = Array.isArray(diary.images) ? [...diary.images] : []
     const lines = rawContent.split('\n')
     const filtered = lines.filter(line => {
@@ -546,6 +742,11 @@ class UIManager {
       return true
     })
     return { content: filtered.join('\n').trim(), images }
+  }
+
+  getDiaryEffectiveContent(diary) {
+    if (!diary) return ''
+    return diary.structured_version || diary.finalVersion || diary.content || ''
   }
 
   checkApiKey() {
@@ -613,6 +814,15 @@ class UIManager {
     this.bindCancelAnalysis()
   }
 
+  showStructureProgress(onCancel) {
+    const progressPanel = document.getElementById('analysis-progress')
+    if (progressPanel) {
+      progressPanel.classList.remove('hidden')
+      this.updateProgress(0, '正在结构优化...', '准备优化')
+    }
+    this.bindCancelAnalysis(onCancel, '已取消结构优化')
+  }
+
   hideAnalysisProgress() {
     const progressPanel = document.getElementById('analysis-progress')
     if (progressPanel) {
@@ -643,12 +853,15 @@ class UIManager {
     }
   }
 
-  bindCancelAnalysis() {
+  bindCancelAnalysis(onCancel, message) {
     const btnCancel = document.getElementById('btn-cancel-analysis')
     if (btnCancel) {
       btnCancel.onclick = () => {
         this.hideAnalysisProgress()
-        this.showToast('已取消分析')
+        this.showToast(message || '已取消分析')
+        if (onCancel) {
+          onCancel()
+        }
       }
     }
   }
@@ -693,7 +906,8 @@ class UIManager {
     if (!diary) return
 
     const normalized = this.normalizeDiaryContent(diary)
-    const content = normalized.content
+    const { bodyText, treeText } = this.splitTreeContent(normalized.content)
+    const content = bodyText
     const article = document.getElementById('viewer-article')
     const images = normalized.images
 
@@ -723,6 +937,11 @@ class UIManager {
         html += `<div class="viewer-chapter-divider">第 ${Math.floor(index / 3) + 1} 章</div>`
       }
     })
+
+    if (treeText) {
+      html += `<div class="viewer-tree-title">目录树</div>`
+      html += `<pre class="viewer-tree">${this.escapeHtml(treeText)}</pre>`
+    }
 
     article.innerHTML = html
     article.style.fontSize = `${this.viewerFontSize}px`

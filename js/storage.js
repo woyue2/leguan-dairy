@@ -41,7 +41,8 @@ class DiaryStorage {
       date: diary.date || new Date().toISOString().split('T')[0],
       analysis: diary.analysis || null,
       finalVersion: diary.finalVersion || diary.content,
-      isAnalyzed: diary.isAnalyzed || false
+      original_content: diary.original_content || null,
+      structured_version: diary.structured_version || null
     }
 
     diaries.unshift(newDiary)
@@ -81,14 +82,22 @@ class DiaryStorage {
 
     const result = this.update(id, {
       analysis: analysisData,
-      title: analysisData.title || undefined,
-      isAnalyzed: true
+      title: analysisData.title || undefined
     })
     return result
   }
 
   saveFinalVersion(id, finalVersion) {
     return this.update(id, { finalVersion })
+  }
+
+  saveStructuredVersion(id, structuredVersion) {
+    return this.update(id, { structured_version: structuredVersion })
+  }
+
+  getStructuredVersion(id) {
+    const diary = this.getById(id)
+    return diary ? diary.structured_version : null
   }
 
   saveAll(diaries) {
@@ -130,7 +139,7 @@ class DiaryStorage {
     return {
       total: diaries.length,
       today: diaries.filter(d => d.date === today).length,
-      analyzed: diaries.filter(d => d.isAnalyzed).length
+      analyzed: diaries.filter(d => d.analysis).length
     }
   }
 

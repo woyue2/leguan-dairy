@@ -439,6 +439,43 @@ body {
   border-left: 4px solid var(--success-color);
 }
 
+.structure-content {
+  background: #f7f9fc;
+  padding: 20px;
+  border-radius: var(--radius);
+  line-height: 1.8;
+}
+
+.structure-paragraph {
+  margin-bottom: 12px;
+}
+
+.structure-tree-title {
+  margin-top: 18px;
+  margin-bottom: 8px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.structure-tree {
+  background: #eef2f7;
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  font-size: 0.9rem;
+  white-space: pre;
+  overflow-x: auto;
+}
+
+.original-content {
+  background: #f7f9fc;
+  border-radius: var(--radius);
+  padding: 16px 18px;
+  line-height: 1.8;
+  white-space: pre-wrap;
+  color: var(--text-primary);
+}
+
 .analysis-label {
   font-weight: 600;
   margin-bottom: 10px;
@@ -766,6 +803,32 @@ body {
 
 .viewer-article p {
   margin-bottom: 1.5em;
+}
+
+.viewer-tree-title {
+  margin-top: 2.5em;
+  margin-bottom: 0.6em;
+  font-weight: 600;
+  color: var(--text-secondary);
+  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+.viewer-tree {
+  background: rgba(0, 0, 0, 0.04);
+  border-radius: var(--radius);
+  padding: 16px 18px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  font-size: 0.95em;
+  white-space: pre;
+  overflow-x: auto;
+}
+
+.viewer-overlay.dark .viewer-tree {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.viewer-overlay.warm .viewer-tree {
+  background: rgba(90, 72, 40, 0.12);
 }
 
 @media (max-width: 768px) {
