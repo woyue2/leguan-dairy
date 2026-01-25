@@ -300,36 +300,10 @@ class ZhipuAPI {
       .join('\n')
       .trim()
   }
-}
-
-class APIError extends Error {
-  constructor(message, code = 'UNKNOWN') {
-    super(message)
-    this.name = 'APIError'
-    this.code = code
-  }
-
-  static network() {
-    return new APIError('网络连接失败，请检查网络', 'NETWORK')
-  }
-
-  static timeout() {
-    return new APIError('请求超时，请重试', 'TIMEOUT')
-  }
-
-  static invalidKey() {
-    return new APIError('API Key无效', 'INVALID_KEY')
-  }
-
-  static quotaExceeded() {
-    return new APIError('API调用次数已用尽', 'QUOTA_EXCEEDED')
-  }
-
-  // ========== 周记生成方法 ==========
 
   async generateWeeklySummary(diaries, onProgress) {
     if (!diaries || diaries.length === 0) {
-      throw new Error('本周没有日记，无法生成周记')
+      throw new Error('没有可用于生成周记的日记')
     }
 
     if (!Config.hasApiKey()) {
@@ -340,93 +314,48 @@ class APIError extends Error {
       throw new Error('网络连接已断开')
     }
 
+    const maxDiaryLength = 500
+    const batchSize = 10
+
     this.controller = new AbortController()
 
     if (onProgress) {
-      onProgress(10, '整理本周日记...', '正在收集日记内容')
+      onProgress(10, '整理日记中...', '正在收集日记内容')
     }
 
-    const diaryContent = diaries
-      .map(diary => {
-        const date = new Date(diary.date).toLocaleDateString('zh-CN', {
-          weekday: 'long',
-          month: 'long',
-          day: 'numeric'
-        })
-        const content = diary.finalVersion || diary.content
-        const cleaned = this.stripImageLines(content || '')
-        return `【${date}】${diary.title}\n${cleaned}`
-      })
-      .join('\n\n')
-
-    if (onProgress) {
-      onProgress(30, '生成周记中...', '正在调用AI')
-    }
+    const diaryContent = this.buildWeeklyDiaryContent(diaries, maxDiaryLength)
+    const batches = this.splitWeeklyBatches(diaryContent, batchSize)
 
     try {
-      const response = await fetch(this.config.baseUrl, {
-        method: 'POST',
-        headers: this.getHeaders(),
-        body: JSON.stringify({
-          model: this.config.model,
-          messages: [
-            {
-              role: 'system',
-              content: `你是一个温暖的故事作家。
+      if (batches.length === 1) {
+        const result = await this.requestWeeklySummary(
+          batches[0].join('\n\n'),
+          onProgress,
+          '原始日记内容'
+        )
+        return result
+      }
 
-任务：把用户的周记整理成一个连贯、温暖的故事。
-
-要求：
-1. 保持原文的核心内容和细节，不要过度概括
-2. 在每天的事件中寻找联系，用故事线串联
-3. 用积极温暖的语言，让读者感到治愈
-4. 生成一个诗意的标题（4-8个字）
-5. 故事要有开头、发展、结尾的结构
-6. 适当加入情感描写，但保持真实
-
-请用JSON格式返回：
-{
-  "title": "诗意标题（4-8个字）",
-  "summary": "完整的周记故事"
-}
-
-注意：
-- 如果某天没有日记，可以跳过或简单提及
-- 保持故事连贯性，不要像流水账
-- 让读者感受到这一周的美好`
-            },
-            {
-              role: 'user',
-              content: `请根据以下本周日记生成一篇周记：\n\n${diaryContent}`
-            }
-          ],
-          temperature: 0.7,
-          max_tokens: 3000
-        }),
-        signal: this.controller.signal
-      })
+      const batchSummaries = []
+      for (let i = 0; i < batches.length; i += 1) {
+        const percent = 20 + Math.round((i / batches.length) * 50)
+        if (onProgress) {
+          onProgress(percent, `分批处理中 (${i + 1}/${batches.length})`, '正在生成阶段摘要')
+        }
+        const summary = await this.requestWeeklyBatchSummary(
+          batches[i].join('\n\n'),
+          i + 1,
+          batches.length
+        )
+        batchSummaries.push(`第${i + 1}批摘要：\n${summary}`)
+      }
 
       if (onProgress) {
-        onProgress(60, '解析周记内容...', '正在处理结果')
+        onProgress(75, '合并周记中...', '正在汇总整体结构')
       }
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}))
-        throw this.handleErrorResponse(response.status, errorData)
-      }
-
-      const data = await response.json()
-
-      if (onProgress) {
-        onProgress(90, '完成生成...', '准备显示')
-      }
-
-      const result = this.parseWeeklyResponse(data)
-
-      if (onProgress) {
-        onProgress(100, '生成完成', '周记已准备就绪')
-      }
-
+      const mergedContent = batchSummaries.join('\n\n')
+      const result = await this.requestWeeklySummary(mergedContent, onProgress, '分批摘要内容')
       return result
 
     } catch (error) {
@@ -435,6 +364,131 @@ class APIError extends Error {
       }
       throw error
     }
+  }
+
+  buildWeeklyDiaryContent(diaries, maxDiaryLength) {
+    const storage = new DiaryStorage()
+    return diaries.map(diary => {
+      const date = this.formatWeeklyDate(diary.date)
+      const title = diary.title ? `《${diary.title}》` : ''
+      const content = diary.structured_version || diary.finalVersion || diary.content || ''
+      const cleaned = this.stripImageLines(content)
+      const compressed = storage.compressDiaryContent(cleaned, maxDiaryLength)
+      const isCompressed = cleaned.length > maxDiaryLength
+      const label = isCompressed ? '内容（摘要）' : '内容'
+      return `【${date}】${title}\n${label}：${compressed}`
+    })
+  }
+
+  splitWeeklyBatches(entries, batchSize) {
+    const batches = []
+    for (let i = 0; i < entries.length; i += batchSize) {
+      batches.push(entries.slice(i, i + batchSize))
+    }
+    return batches
+  }
+
+  formatWeeklyDate(dateStr) {
+    const date = new Date(dateStr)
+    if (Number.isNaN(date.getTime())) return dateStr
+    return date.toLocaleDateString('zh-CN', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      weekday: 'long'
+    })
+  }
+
+  async requestWeeklySummary(content, onProgress, label) {
+    if (onProgress) {
+      onProgress(35, '生成周记中...', '正在调用AI')
+    }
+
+    const response = await fetch(this.config.baseUrl, {
+      method: 'POST',
+      headers: this.getHeaders(),
+      body: JSON.stringify({
+        model: this.config.model,
+        messages: [
+          {
+            role: 'system',
+            content: Config.getWeeklySystemPrompt()
+          },
+          {
+            role: 'user',
+            content: `请根据以下${label}生成一篇周记：\n\n${content}`
+          }
+        ],
+        temperature: 0.7,
+        max_tokens: 3000
+      }),
+      signal: this.controller.signal
+    })
+
+    if (onProgress) {
+      onProgress(70, '解析周记内容...', '正在处理结果')
+    }
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}))
+      throw this.handleErrorResponse(response.status, errorData)
+    }
+
+    const data = await response.json()
+
+    if (onProgress) {
+      onProgress(90, '完成生成...', '准备显示')
+    }
+
+    const result = this.parseWeeklyResponse(data)
+
+    if (onProgress) {
+      onProgress(100, '生成完成', '周记已准备就绪')
+    }
+
+    return result
+  }
+
+  async requestWeeklyBatchSummary(content, batchIndex, totalBatches) {
+    const response = await fetch(this.config.baseUrl, {
+      method: 'POST',
+      headers: this.getHeaders(),
+      body: JSON.stringify({
+        model: this.config.model,
+        messages: [
+          {
+            role: 'system',
+            content: `你是周记整理助手，请对一组带日期的日记进行结构化摘要。
+
+要求：
+1. 按时间顺序提炼关键事件与情绪变化
+2. 保留日子之间的因果与转折
+3. 输出 2-4 段摘要，保持真实自然
+
+请用JSON格式返回：
+{
+  "summary": "阶段摘要"
+}`
+          },
+          {
+            role: 'user',
+            content: `这是第 ${batchIndex}/${totalBatches} 批日记内容：\n\n${content}`
+          }
+        ],
+        temperature: 0.6,
+        max_tokens: 2000
+      }),
+      signal: this.controller.signal
+    })
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}))
+      throw this.handleErrorResponse(response.status, errorData)
+    }
+
+    const data = await response.json()
+    const result = this.parseWeeklyResponse(data)
+    return result.summary
   }
 
   parseWeeklyResponse(data) {
@@ -469,6 +523,30 @@ class APIError extends Error {
       console.error('解析周记响应失败:', error)
       throw new Error('解析周记结果失败')
     }
+  }
+}
+
+class APIError extends Error {
+  constructor(message, code = 'UNKNOWN') {
+    super(message)
+    this.name = 'APIError'
+    this.code = code
+  }
+
+  static network() {
+    return new APIError('网络连接失败，请检查网络', 'NETWORK')
+  }
+
+  static timeout() {
+    return new APIError('请求超时，请重试', 'TIMEOUT')
+  }
+
+  static invalidKey() {
+    return new APIError('API Key无效', 'INVALID_KEY')
+  }
+
+  static quotaExceeded() {
+    return new APIError('API调用次数已用尽', 'QUOTA_EXCEEDED')
   }
 
 }

@@ -3,6 +3,10 @@ class UIManager {
     this.currentDiaryId = null
     this.currentImages = []
     this.currentStructuredContent = ''
+    this.structureTargetType = 'diary'
+    this.structureTargetId = null
+    this.weeklyImages = []
+    this.imageInsertTarget = 'diary'
     this.elements = {}
     this.isInsertImageMode = false
     this.init()
@@ -30,7 +34,9 @@ class UIManager {
       btnViewOriginal: document.getElementById('btn-view-original'),
       btnApiKey: document.getElementById('btn-api-key'),
       btnWeekly: document.getElementById('btn-weekly'),
+      btnWeeklyCreate: document.getElementById('btn-weekly-create'),
       btnBackToList: document.getElementById('btn-back-to-list'),
+      btnBackFromSettings: document.getElementById('btn-back-from-settings'),
       diaryList: document.getElementById('diary-list'),
       weeklyList: document.getElementById('weekly-list'),
       editorContent: document.getElementById('editor-content'),
@@ -60,7 +66,11 @@ class UIManager {
       btnCancelInsert: document.getElementById('btn-cancel-insert'),
       btnConfirmInsert: document.getElementById('btn-confirm-insert'),
       imageUrlInput: document.getElementById('image-url-input'),
-      editorImages: document.getElementById('editor-images')
+      editorImages: document.getElementById('editor-images'),
+      btnWeeklyInsertImage: document.getElementById('btn-weekly-insert-image'),
+      weeklyEditorSummary: document.getElementById('weekly-editor-summary'),
+      weeklyEditorImages: document.getElementById('weekly-editor-images'),
+      weeklyResultImages: document.getElementById('weekly-result-images')
     }
   }
 
@@ -90,13 +100,22 @@ class UIManager {
       this.elements.btnApiKey.addEventListener('click', () => this.saveApiKey())
     }
     if (this.elements.btnWeekly) {
-      this.elements.btnWeekly.addEventListener('click', () => this.showWeeklyGenerator())
+      this.elements.btnWeekly.addEventListener('click', () => this.showWeeklyList())
+    }
+    if (this.elements.btnWeeklyCreate) {
+      this.elements.btnWeeklyCreate.addEventListener('click', () => this.showWeeklyGenerator())
     }
     if (this.elements.btnBackToList) {
       this.elements.btnBackToList.addEventListener('click', () => this.showList())
     }
+    if (this.elements.btnBackFromSettings) {
+      this.elements.btnBackFromSettings.addEventListener('click', () => this.showList())
+    }
     if (this.elements.btnInsertImage) {
-      this.elements.btnInsertImage.addEventListener('click', () => this.showInsertImageModal())
+      this.elements.btnInsertImage.addEventListener('click', () => this.showInsertImageModal('diary'))
+    }
+    if (this.elements.btnWeeklyInsertImage) {
+      this.elements.btnWeeklyInsertImage.addEventListener('click', () => this.showInsertImageModal('weekly'))
     }
     if (this.elements.btnCloseImageModal) {
       this.elements.btnCloseImageModal.addEventListener('click', () => this.hideInsertImageModal())
@@ -110,8 +129,14 @@ class UIManager {
     if (this.elements.editorContent) {
       this.elements.editorContent.addEventListener('paste', (e) => this.handlePaste(e))
     }
+    if (this.elements.weeklyEditorSummary) {
+      this.elements.weeklyEditorSummary.addEventListener('paste', (e) => this.handleWeeklyPaste(e))
+    }
     if (this.elements.editorImages) {
       this.elements.editorImages.addEventListener('click', (e) => this.handleRemoveImage(e))
+    }
+    if (this.elements.weeklyEditorImages) {
+      this.elements.weeklyEditorImages.addEventListener('click', (e) => this.handleRemoveWeeklyImage(e))
     }
     if (this.elements.btnCloseStructure) {
       this.elements.btnCloseStructure.addEventListener('click', () => this.hideStructureModal())
@@ -130,8 +155,9 @@ class UIManager {
     }
   }
 
-  showInsertImageModal() {
+  showInsertImageModal(target = 'diary') {
     this.isInsertImageMode = true
+    this.imageInsertTarget = target
     this.elements.imageUrlInput.value = ''
     this.elements.modalInsertImage.classList.remove('hidden')
     this.elements.imageUrlInput.focus()
@@ -149,13 +175,30 @@ class UIManager {
       return
     }
 
-    if (!this.currentImages.includes(url)) {
+    if (this.imageInsertTarget === 'weekly') {
+      if (!this.weeklyImages.includes(url)) {
+        this.weeklyImages.push(url)
+      }
+      if (this.currentWeeklyData) {
+        this.currentWeeklyData = {
+          ...this.currentWeeklyData,
+          images: [...this.weeklyImages]
+        }
+      }
+    } else if (!this.currentImages.includes(url)) {
       this.currentImages.push(url)
     }
     this.hideInsertImageModal()
-    this.updateWordCount()
-    this.updateImagePreview()
-    this.elements.editorContent.focus()
+    if (this.imageInsertTarget === 'weekly') {
+      this.updateWeeklyImagePreview()
+      if (this.elements.weeklyEditorSummary) {
+        this.elements.weeklyEditorSummary.focus()
+      }
+    } else {
+      this.updateWordCount()
+      this.updateImagePreview()
+      this.elements.editorContent.focus()
+    }
   }
 
   handlePaste(e) {
@@ -176,6 +219,33 @@ class UIManager {
       }
       this.updateWordCount()
       this.updateImagePreview()
+      this.showToast('已自动识别并插入图片链接')
+    }
+  }
+
+  handleWeeklyPaste(e) {
+    if (this.isInsertImageMode) {
+      return
+    }
+    if (this.elements.modalInsertImage && !this.elements.modalInsertImage.classList.contains('hidden')) {
+      return
+    }
+    if (document.activeElement === this.elements.imageUrlInput) {
+      return
+    }
+    const paste = (e.clipboardData || window.clipboardData).getData('text')
+    if (paste && paste.match(/^https?:\/\/[^\s]+?\.(jpg|jpeg|png|gif|webp|bmp|svg)(\?.*)?$/i)) {
+      e.preventDefault()
+      if (!this.weeklyImages.includes(paste)) {
+        this.weeklyImages.push(paste)
+      }
+      if (this.currentWeeklyData) {
+        this.currentWeeklyData = {
+          ...this.currentWeeklyData,
+          images: [...this.weeklyImages]
+        }
+      }
+      this.updateWeeklyImagePreview()
       this.showToast('已自动识别并插入图片链接')
     }
   }
@@ -247,7 +317,7 @@ class UIManager {
       const previewText = content.substring(0, 100)
 
       return `
-      <div class="diary-card" data-id="${diary.id}">
+      <div class="diary-card" data-id="${diary.id}" onclick="ui.showViewer('${diary.id}')">
         <div class="diary-card-body">
           ${thumbUrl ? `<img src="${this.escapeHtml(thumbUrl)}" class="diary-thumbnail" onerror="this.style.display='none'">` : ''}
           <div class="diary-card-main">
@@ -258,9 +328,9 @@ class UIManager {
             <p class="diary-card-preview">${this.escapeHtml(previewText)}...</p>
             <div class="diary-card-footer">
               <div class="diary-card-actions">
-                <button class="btn-small" onclick="ui.showViewer('${diary.id}')">查看</button>
-                <button class="btn-small" onclick="ui.showEditor('${diary.id}')">编辑</button>
-                <button class="btn-small btn-danger" onclick="ui.deleteDiary('${diary.id}')">删除</button>
+                <button class="btn-small" onclick="event.stopPropagation(); ui.showViewer('${diary.id}')">查看</button>
+                <button class="btn-small" onclick="event.stopPropagation(); ui.showEditor('${diary.id}')">编辑</button>
+                <button class="btn-small btn-danger" onclick="event.stopPropagation(); ui.deleteDiary('${diary.id}')">删除</button>
               </div>
             </div>
           </div>
@@ -394,6 +464,8 @@ class UIManager {
       return
     }
 
+    this.structureTargetType = 'diary'
+    this.structureTargetId = this.currentDiaryId
     const api = new ZhipuAPI()
     this.showStructureProgress(() => api.abort())
 
@@ -436,6 +508,29 @@ class UIManager {
   saveStructuredVersion() {
     if (!this.currentStructuredContent) {
       this.showToast('没有可保存的优化内容')
+      return
+    }
+
+    if (this.structureTargetType === 'weekly') {
+      if (!this.currentWeeklyData) {
+        this.showToast('周记不存在')
+        return
+      }
+      const storage = new DiaryStorage()
+      const updatedSummary = this.currentStructuredContent
+      this.currentWeeklyData = {
+        ...this.currentWeeklyData,
+        summary: updatedSummary
+      }
+      const existing = storage.getWeeklyById(this.currentWeeklyData.id)
+      if (existing) {
+        storage.updateWeekly(this.currentWeeklyData.id, {
+          summary: updatedSummary
+        })
+      }
+      this.hideStructureModal()
+      this.showWeeklyResult(this.currentWeeklyData.title, updatedSummary)
+      this.showToast('结构优化已保存')
       return
     }
 
@@ -585,12 +680,25 @@ class UIManager {
       return async () => {
         const storage = new DiaryStorage()
         const diary = storage.getById(diaryId)
+        let updatedContent = ''
+        let updatedTitle = ''
         if (diary) {
-          await fn(diaryId, diary, storage)
+          const result = await fn(diaryId, diary, storage)
+          updatedContent = result?.content || ''
+          updatedTitle = result?.title || ''
           this.renderDiaryList()
         }
         modal.classList.add('hidden')
-        this.showList()
+        if (updatedContent) {
+          this.elements.editorContent.value = updatedContent
+          this.elements.editorTitle.value = updatedTitle || this.extractTitle(updatedContent)
+          this.currentDiaryId = diaryId
+          this.updateWordCount()
+          this.updateImagePreview()
+          if (confirm('是否继续进行结构分析？')) {
+            this.handleStructureAnalysis()
+          }
+        }
       }
     }
 
@@ -598,6 +706,7 @@ class UIManager {
       const baseContent = this.getDiaryEffectiveContent(diary)
       storage.saveFinalVersion(id, baseContent)
       this.showToast('已保留原文')
+      return { content: baseContent, title: diary.title }
     })
 
     btnUseRewritten.onclick = handler((id, diary, storage) => {
@@ -610,9 +719,11 @@ class UIManager {
           title: newTitle || undefined
         })
         this.showToast('已采用改写版本')
+        return { content: rewritten, title: newTitle || diary.title }
       } else {
         this.showToast('没有可用的改写版本')
       }
+      return null
     })
 
     btnRegenerate.onclick = async () => {
@@ -716,6 +827,40 @@ class UIManager {
     `).join('')
   }
 
+  updateWeeklyImagePreview() {
+    if (!this.elements.weeklyEditorImages) return
+    if (this.weeklyImages.length === 0) {
+      this.elements.weeklyEditorImages.innerHTML = ''
+      this.elements.weeklyEditorImages.classList.add('hidden')
+      return
+    }
+
+    this.elements.weeklyEditorImages.classList.remove('hidden')
+    this.elements.weeklyEditorImages.innerHTML = this.weeklyImages.map(url => `
+      <div class="editor-image-item">
+        <img src="${this.escapeHtml(url)}" alt="图片">
+        <button class="editor-image-remove" data-url="${this.escapeHtml(url)}">×</button>
+      </div>
+    `).join('')
+  }
+
+  updateWeeklyResultImages(images) {
+    if (!this.elements.weeklyResultImages) return
+    const list = Array.isArray(images) ? images : []
+    if (list.length === 0) {
+      this.elements.weeklyResultImages.innerHTML = ''
+      this.elements.weeklyResultImages.classList.add('hidden')
+      return
+    }
+
+    this.elements.weeklyResultImages.classList.remove('hidden')
+    this.elements.weeklyResultImages.innerHTML = list.map(url => `
+      <div class="editor-image-item">
+        <img src="${this.escapeHtml(url)}" alt="图片">
+      </div>
+    `).join('')
+  }
+
   handleRemoveImage(e) {
     const button = e.target.closest('.editor-image-remove')
     if (!button) return
@@ -724,6 +869,21 @@ class UIManager {
     this.currentImages = this.currentImages.filter(item => item !== url)
     this.updateImagePreview()
     this.updateWordCount()
+  }
+
+  handleRemoveWeeklyImage(e) {
+    const button = e.target.closest('.editor-image-remove')
+    if (!button) return
+    const url = button.dataset.url
+    if (!url) return
+    this.weeklyImages = this.weeklyImages.filter(item => item !== url)
+    if (this.currentWeeklyData) {
+      this.currentWeeklyData = {
+        ...this.currentWeeklyData,
+        images: [...this.weeklyImages]
+      }
+    }
+    this.updateWeeklyImagePreview()
   }
 
   normalizeDiaryContent(diary) {
@@ -869,10 +1029,14 @@ class UIManager {
   viewerFontSize = 18
   viewerCurrentDiaryId = null
   viewerDiaries = []
+  viewerMode = 'diary'
+  viewerCurrentWeeklyId = null
+  viewerWeeklies = []
 
   showViewer(diaryId) {
     const storage = new DiaryStorage()
     this.viewerDiaries = storage.getAll()
+    this.viewerMode = 'diary'
 
     const currentIndex = this.viewerDiaries.findIndex(d => d.id === diaryId)
     if (currentIndex === -1) {
@@ -884,6 +1048,31 @@ class UIManager {
     this.viewerFontSize = 18
 
     this.renderViewerContent(diaryId)
+    this.updateViewerNavigation()
+    this.updateViewerFontSize()
+
+    const modal = document.getElementById('modal-viewer')
+    modal.classList.remove('hidden')
+    modal.className = 'modal-overlay viewer-overlay'
+
+    document.body.style.overflow = ''
+  }
+
+  showWeeklyViewer(weeklyId) {
+    const storage = new DiaryStorage()
+    this.viewerWeeklies = storage.getAllWeekly().slice().sort((a, b) => new Date(a.startDate) - new Date(b.startDate))
+    this.viewerMode = 'weekly'
+
+    const currentIndex = this.viewerWeeklies.findIndex(w => w.id === weeklyId)
+    if (currentIndex === -1) {
+      this.showToast('周记不存在')
+      return
+    }
+
+    this.viewerCurrentWeeklyId = weeklyId
+    this.viewerFontSize = 18
+
+    this.renderWeeklyViewerContent(weeklyId)
     this.updateViewerNavigation()
     this.updateViewerFontSize()
 
@@ -947,6 +1136,48 @@ class UIManager {
     article.style.fontSize = `${this.viewerFontSize}px`
   }
 
+  renderWeeklyViewerContent(weeklyId) {
+    const storage = new DiaryStorage()
+    const weekly = storage.getWeeklyById(weeklyId)
+    if (!weekly) return
+
+    const article = document.getElementById('viewer-article')
+    const startDate = new Date(weekly.startDate)
+    const endDate = new Date(weekly.endDate)
+    const dateRange = `${startDate.toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' })} - ${endDate.toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' })}`
+    const summary = (weekly.summary || '').trim()
+    const paragraphs = summary ? summary.split(/\n+/).map(p => p.trim()).filter(Boolean) : []
+    const images = Array.isArray(weekly.images) ? weekly.images : []
+
+    let html = `
+      <h1 class="viewer-title">${this.escapeHtml(weekly.title || '无标题')}</h1>
+      <div class="viewer-date">${this.escapeHtml(dateRange)}</div>
+    `
+
+    if (images.length > 0) {
+      html += images.map(url => `
+        <img src="${this.escapeHtml(url)}" onerror="this.outerHTML='<div class=\\'image-placeholder\\'>图片加载失败</div>'">
+      `).join('')
+    }
+
+    if (paragraphs.length === 0) {
+      html += `<p class="viewer-content">${this.escapeHtml(summary)}</p>`
+    } else {
+      paragraphs.forEach((para, index) => {
+        if (index === 0 && para.length > 0) {
+          const firstChar = para[0]
+          const rest = para.slice(1)
+          html += `<p><span class="viewer-first-letter">${this.escapeHtml(firstChar)}</span><span class="viewer-content">${this.escapeHtml(rest)}</span></p>`
+        } else if (para.trim()) {
+          html += `<p class="viewer-content">${this.escapeHtml(para)}</p>`
+        }
+      })
+    }
+
+    article.innerHTML = html
+    article.style.fontSize = `${this.viewerFontSize}px`
+  }
+
   setViewerTheme(theme) {
     const modal = document.getElementById('modal-viewer')
     modal.className = 'modal-overlay viewer-overlay'
@@ -973,6 +1204,26 @@ class UIManager {
   }
 
   navigateViewer(direction) {
+    if (this.viewerMode === 'weekly') {
+      const weeklies = this.viewerWeeklies
+      if (weeklies.length === 0) return
+      const currentIndex = weeklies.findIndex(w => w.id === this.viewerCurrentWeeklyId)
+
+      let newIndex
+      if (direction === 'prev') {
+        newIndex = currentIndex > 0 ? currentIndex - 1 : weeklies.length - 1
+      } else {
+        newIndex = currentIndex < weeklies.length - 1 ? currentIndex + 1 : 0
+      }
+
+      if (weeklies[newIndex]) {
+        this.viewerCurrentWeeklyId = weeklies[newIndex].id
+        this.renderWeeklyViewerContent(weeklies[newIndex].id)
+        this.updateViewerNavigation()
+      }
+      return
+    }
+
     const storage = new DiaryStorage()
     const diaries = storage.getAll()
     const currentIndex = diaries.findIndex(d => d.id === this.viewerCurrentDiaryId)
@@ -995,6 +1246,17 @@ class UIManager {
     const btnPrev = document.getElementById('btn-prev-diary')
     const btnNext = document.getElementById('btn-next-diary')
 
+    if (this.viewerMode === 'weekly') {
+      if (this.viewerWeeklies.length <= 1) {
+        btnPrev.style.visibility = 'hidden'
+        btnNext.style.visibility = 'hidden'
+      } else {
+        btnPrev.style.visibility = 'visible'
+        btnNext.style.visibility = 'visible'
+      }
+      return
+    }
+
     const storage = new DiaryStorage()
     const diaries = storage.getAll()
 
@@ -1010,74 +1272,31 @@ class UIManager {
   // ========== 周记相关方法 ==========
 
   currentWeeklyData = null
+  weeklyEditingExisting = false
+  weeklySelection = {
+    mode: 'range',
+    rangeType: 'last-week',
+    startDate: '',
+    endDate: '',
+    selectedIds: new Set()
+  }
+  weeklyAllDiaries = []
+  weeklyVisibleDiaries = []
 
   async showWeeklyGenerator() {
-    const storage = new DiaryStorage()
-    const weekInfo = storage.getCurrentWeekInfo()
-    const diaries = storage.getDiariesForWeek(weekInfo.year, weekInfo.weekNumber)
-    const dayCount = diaries.length
-
-    if (dayCount < 4) {
-      this.showWeeklyEmpty(dayCount, 7)
-      return
-    }
-
     this.showWeeklyModal()
-
-    this.showWeeklyProgress(true, 0, '正在收集本周日记...', '准备生成')
-
-    try {
-      const api = new ZhipuAPI()
-      const result = await api.generateWeeklySummary(diaries, (percent, status, info) => {
-        this.updateWeeklyProgress(percent, status, info)
-      })
-
-      this.currentWeeklyData = {
-        ...weekInfo,
-        diaryIds: diaries.map(d => d.id),
-        title: result.title,
-        summary: result.summary
-      }
-
-      this.showWeeklyResult(result.title, result.summary)
-      this.bindWeeklyModalEvents()
-
-    } catch (error) {
-      this.showToast(error.message)
-      this.hideWeeklyModal()
-    }
-  }
-
-  async forceGenerateWeekly() {
-    const storage = new DiaryStorage()
-    const weekInfo = storage.getCurrentWeekInfo()
-    const diaries = storage.getDiariesForWeek(weekInfo.year, weekInfo.weekNumber)
-    const dayCount = diaries.length
-
-    this.showWeeklyModal()
-    this.showWeeklyProgress(true, 0, '正在生成周记...', `注意：仅有 ${dayCount} 天日记`)
-
-    try {
-      const api = new ZhipuAPI()
-      const result = await api.generateWeeklySummary(diaries, (percent, status, info) => {
-        this.updateWeeklyProgress(percent, status, info)
-      })
-
-      this.currentWeeklyData = {
-        ...weekInfo,
-        diaryIds: diaries.map(d => d.id),
-        title: result.title,
-        summary: result.summary
-      }
-
-      this.showWeeklyResult(result.title, result.summary)
-      this.bindWeeklyModalEvents()
-      this.showToast('周记已生成（天数较少，可能不够有代表性）')
-
-    } catch (error) {
-      this.showToast(error.message)
-      this.hideWeeklyModal()
-    }
+    const title = document.getElementById('weekly-modal-title')
+    if (title) title.textContent = '周记生成'
+    const btnSave = document.getElementById('btn-save-weekly')
+    if (btnSave) btnSave.style.display = ''
+    const btnRegenerate = document.getElementById('btn-regenerate-weekly')
+    if (btnRegenerate) btnRegenerate.textContent = '重新生成'
+    this.weeklyEditingExisting = false
+    this.weeklyImages = []
+    this.updateWeeklyImagePreview()
+    this.updateWeeklyResultImages([])
+    this.prepareWeeklySelector()
+    this.showWeeklySelectorView()
   }
 
   showWeeklyModal() {
@@ -1093,7 +1312,28 @@ class UIManager {
     if (modal) {
       modal.classList.add('hidden')
       this.currentWeeklyData = null
+      this.weeklyEditingExisting = false
     }
+  }
+
+  showWeeklySelectorView() {
+    const selector = document.getElementById('weekly-selector')
+    const selectionFooter = document.getElementById('weekly-selection-footer')
+    const progress = document.getElementById('weekly-progress')
+    const result = document.getElementById('weekly-result')
+    const empty = document.getElementById('weekly-empty')
+    const footer = document.getElementById('weekly-modal-footer')
+    const editor = document.getElementById('weekly-editor')
+    const editorFooter = document.getElementById('weekly-editor-footer')
+
+    if (selector) selector.classList.remove('hidden')
+    if (selectionFooter) selectionFooter.classList.remove('hidden')
+    if (progress) progress.classList.add('hidden')
+    if (result) result.classList.add('hidden')
+    if (empty) empty.classList.add('hidden')
+    if (footer) footer.classList.add('hidden')
+    if (editor) editor.classList.add('hidden')
+    if (editorFooter) editorFooter.classList.add('hidden')
   }
 
   showWeeklyProgress(show, percent, status, info) {
@@ -1101,6 +1341,10 @@ class UIManager {
     const result = document.getElementById('weekly-result')
     const empty = document.getElementById('weekly-empty')
     const footer = document.getElementById('weekly-modal-footer')
+    const selector = document.getElementById('weekly-selector')
+    const selectionFooter = document.getElementById('weekly-selection-footer')
+    const editor = document.getElementById('weekly-editor')
+    const editorFooter = document.getElementById('weekly-editor-footer')
 
     if (progress) {
       show ? progress.classList.remove('hidden') : progress.classList.add('hidden')
@@ -1108,6 +1352,10 @@ class UIManager {
     if (result) result.classList.add('hidden')
     if (empty) empty.classList.add('hidden')
     if (footer) footer.classList.add('hidden')
+    if (selector) selector.classList.add('hidden')
+    if (selectionFooter) selectionFooter.classList.add('hidden')
+    if (editor) editor.classList.add('hidden')
+    if (editorFooter) editorFooter.classList.add('hidden')
 
     this.updateWeeklyProgress(percent, status, info)
   }
@@ -1135,12 +1383,20 @@ class UIManager {
     const result = document.getElementById('weekly-result')
     const empty = document.getElementById('weekly-empty')
     const footer = document.getElementById('weekly-modal-footer')
+    const selector = document.getElementById('weekly-selector')
+    const selectionFooter = document.getElementById('weekly-selection-footer')
+    const editor = document.getElementById('weekly-editor')
+    const editorFooter = document.getElementById('weekly-editor-footer')
     const title = document.getElementById('weekly-modal-title')
 
     if (progress) progress.classList.add('hidden')
     if (result) result.classList.add('hidden')
     if (empty) empty.classList.remove('hidden')
     if (footer) footer.classList.add('hidden')
+    if (selector) selector.classList.add('hidden')
+    if (selectionFooter) selectionFooter.classList.add('hidden')
+    if (editor) editor.classList.add('hidden')
+    if (editorFooter) editorFooter.classList.add('hidden')
     if (title) title.textContent = '周记生成'
 
     const btnClose = document.getElementById('btn-close-weekly')
@@ -1156,10 +1412,9 @@ class UIManager {
             <span class="count-number">${currentDay}</span>
             <span class="count-total">/${totalDays} 天</span>
           </div>
-          <p class="weekly-tip">至少需要4天才能生成有代表性的周记</p>
+          <p class="weekly-tip">还没有可用于生成的日记</p>
           <div class="weekly-actions">
             <button class="btn btn-primary" onclick="ui.hideWeeklyModal(); ui.showEditor()">继续写日记</button>
-            ${currentDay > 0 ? `<button class="btn btn-secondary" onclick="ui.forceGenerateWeekly()">强制生成（可能不够有代表性）</button>` : ''}
           </div>
         </div>
       `
@@ -1171,6 +1426,10 @@ class UIManager {
     const result = document.getElementById('weekly-result')
     const empty = document.getElementById('weekly-empty')
     const footer = document.getElementById('weekly-modal-footer')
+    const selector = document.getElementById('weekly-selector')
+    const selectionFooter = document.getElementById('weekly-selection-footer')
+    const editor = document.getElementById('weekly-editor')
+    const editorFooter = document.getElementById('weekly-editor-footer')
 
     const titleEl = document.getElementById('weekly-title')
     const summaryEl = document.getElementById('weekly-summary')
@@ -1179,15 +1438,31 @@ class UIManager {
     if (result) result.classList.remove('hidden')
     if (empty) empty.classList.add('hidden')
     if (footer) footer.classList.remove('hidden')
+    if (selector) selector.classList.add('hidden')
+    if (selectionFooter) selectionFooter.classList.add('hidden')
+    if (editor) editor.classList.add('hidden')
+    if (editorFooter) editorFooter.classList.add('hidden')
 
     if (titleEl) titleEl.textContent = title
     if (summaryEl) summaryEl.textContent = summary
+    if (this.currentWeeklyData) {
+      const images = Array.isArray(this.currentWeeklyData.images) ? [...this.currentWeeklyData.images] : []
+      this.weeklyImages = images
+      this.updateWeeklyResultImages(images)
+    } else {
+      this.updateWeeklyResultImages([])
+    }
   }
 
   bindWeeklyModalEvents() {
     const btnClose = document.getElementById('btn-close-weekly')
     const btnRegenerate = document.getElementById('btn-regenerate-weekly')
+    const btnStructure = document.getElementById('btn-weekly-structure')
     const btnSave = document.getElementById('btn-save-weekly')
+    const btnGenerate = document.getElementById('btn-generate-weekly')
+    const btnSelectAll = document.getElementById('btn-weekly-select-all')
+    const btnClear = document.getElementById('btn-weekly-clear')
+    const btnEdit = document.getElementById('btn-edit-weekly')
 
     if (btnClose) {
       btnClose.onclick = () => this.hideWeeklyModal()
@@ -1197,19 +1472,377 @@ class UIManager {
       btnRegenerate.onclick = () => this.regenerateWeekly()
     }
 
+    if (btnStructure) {
+      btnStructure.onclick = () => this.handleWeeklyStructureAnalysis()
+    }
+
     if (btnSave) {
       btnSave.onclick = () => this.saveWeekly()
     }
+
+    if (btnGenerate) {
+      btnGenerate.onclick = () => this.generateWeeklyFromSelection()
+    }
+
+    if (btnSelectAll) {
+      btnSelectAll.onclick = () => this.selectAllWeeklyDiaries()
+    }
+
+    if (btnClear) {
+      btnClear.onclick = () => this.clearWeeklySelection()
+    }
+
+    if (btnEdit) {
+      btnEdit.onclick = () => this.openWeeklyEditorFromCurrent()
+    }
+  }
+
+  prepareWeeklySelector() {
+    const storage = new DiaryStorage()
+    this.weeklyAllDiaries = storage.getAll().slice().sort((a, b) => new Date(a.date) - new Date(b.date))
+    const lastWeek = this.getWeeklyRangeByType('last-week')
+    this.weeklySelection = {
+      mode: 'range',
+      rangeType: 'last-week',
+      startDate: lastWeek.startDate,
+      endDate: lastWeek.endDate,
+      selectedIds: new Set()
+    }
+    this.applyWeeklyRangeSelection()
+    this.renderWeeklySelector()
+    this.bindWeeklySelectorEvents()
+  }
+
+  bindWeeklySelectorEvents() {
+    const modeSelect = document.getElementById('weekly-select-mode')
+    const rangeSelect = document.getElementById('weekly-range-type')
+    const startInput = document.getElementById('weekly-range-start')
+    const endInput = document.getElementById('weekly-range-end')
+    const listEl = document.getElementById('weekly-diary-list')
+
+    if (modeSelect) {
+      modeSelect.onchange = (event) => {
+        this.weeklySelection.mode = event.target.value
+        if (this.weeklySelection.mode === 'range') {
+          this.applyWeeklyRangeSelection()
+        }
+        this.renderWeeklySelector()
+      }
+    }
+
+    if (rangeSelect) {
+      rangeSelect.onchange = (event) => {
+        this.weeklySelection.rangeType = event.target.value
+        if (this.weeklySelection.rangeType !== 'custom') {
+          const range = this.getWeeklyRangeByType(this.weeklySelection.rangeType)
+          this.weeklySelection.startDate = range.startDate
+          this.weeklySelection.endDate = range.endDate
+        }
+        if (this.weeklySelection.mode === 'range') {
+          this.applyWeeklyRangeSelection()
+        }
+        this.renderWeeklySelector()
+      }
+    }
+
+    if (startInput) {
+      startInput.onchange = () => this.handleWeeklyCustomRangeChange()
+    }
+
+    if (endInput) {
+      endInput.onchange = () => this.handleWeeklyCustomRangeChange()
+    }
+
+    if (listEl) {
+      listEl.onchange = (event) => {
+        const checkbox = event.target.closest('input[type="checkbox"]')
+        if (!checkbox) return
+        const id = checkbox.value
+        if (!id) return
+        if (checkbox.checked) {
+          this.weeklySelection.selectedIds.add(id)
+        } else {
+          this.weeklySelection.selectedIds.delete(id)
+        }
+        this.updateWeeklySelectionSummary()
+        this.updateWeeklyGenerateState()
+      }
+    }
+  }
+
+  handleWeeklyCustomRangeChange() {
+    const startInput = document.getElementById('weekly-range-start')
+    const endInput = document.getElementById('weekly-range-end')
+    if (!startInput || !endInput) return
+    const startDate = startInput.value
+    const endDate = endInput.value
+    if (!startDate || !endDate) return
+    if (new Date(startDate) > new Date(endDate)) {
+      this.showToast('开始日期不能晚于结束日期')
+      return
+    }
+    this.weeklySelection.startDate = startDate
+    this.weeklySelection.endDate = endDate
+    if (this.weeklySelection.mode === 'range') {
+      this.applyWeeklyRangeSelection()
+    }
+    this.renderWeeklySelector()
+  }
+
+  applyWeeklyRangeSelection() {
+    if (this.weeklySelection.mode !== 'range') return
+    const rangeDiaries = this.getWeeklyVisibleDiaries()
+    this.weeklySelection.selectedIds = new Set(rangeDiaries.map(d => d.id))
+  }
+
+  renderWeeklySelector() {
+    const modeSelect = document.getElementById('weekly-select-mode')
+    const rangeSelect = document.getElementById('weekly-range-type')
+    const startInput = document.getElementById('weekly-range-start')
+    const endInput = document.getElementById('weekly-range-end')
+    const rangeControls = document.getElementById('weekly-range-controls')
+    const customRange = document.getElementById('weekly-custom-range')
+    const listEl = document.getElementById('weekly-diary-list')
+
+    if (modeSelect) modeSelect.value = this.weeklySelection.mode
+    if (rangeSelect) rangeSelect.value = this.weeklySelection.rangeType
+    if (startInput) startInput.value = this.weeklySelection.startDate || ''
+    if (endInput) endInput.value = this.weeklySelection.endDate || ''
+
+    if (rangeControls) {
+      this.weeklySelection.mode === 'range'
+        ? rangeControls.classList.remove('hidden')
+        : rangeControls.classList.add('hidden')
+    }
+    if (customRange) {
+      this.weeklySelection.mode === 'range' && this.weeklySelection.rangeType === 'custom'
+        ? customRange.classList.remove('hidden')
+        : customRange.classList.add('hidden')
+    }
+
+    const diaries = this.getWeeklyVisibleDiaries()
+    this.weeklyVisibleDiaries = diaries
+
+    if (listEl) {
+      if (diaries.length === 0) {
+        listEl.innerHTML = `<div class="weekly-empty">暂无日记</div>`
+      } else {
+        let html = ''
+        let currentDate = ''
+        for (let i = 0; i < diaries.length; i += 1) {
+          const diary = diaries[i]
+          const dateLabel = this.formatDate(diary.date)
+          if (dateLabel !== currentDate) {
+            if (currentDate) {
+              html += `</div>`
+            }
+            currentDate = dateLabel
+            html += `<div class="weekly-diary-group"><div class="weekly-diary-date">${this.escapeHtml(dateLabel)}</div>`
+          }
+          const checked = this.weeklySelection.selectedIds.has(diary.id) ? 'checked' : ''
+          const preview = this.getWeeklyDiaryPreview(diary)
+          html += `
+            <label class="weekly-diary-item">
+              <input type="checkbox" value="${diary.id}" ${checked}>
+              <div>
+                <div class="weekly-diary-title">${this.escapeHtml(diary.title || '无标题')}</div>
+                <div class="weekly-diary-preview">${this.escapeHtml(preview)}</div>
+              </div>
+            </label>
+          `
+        }
+        if (currentDate) {
+          html += `</div>`
+        }
+        listEl.innerHTML = html
+      }
+    }
+
+    this.updateWeeklySelectionSummary()
+    this.updateWeeklyGenerateState()
+  }
+
+  updateWeeklySelectionSummary() {
+    const countEl = document.getElementById('weekly-selected-count')
+    const rangeEl = document.getElementById('weekly-selected-range')
+    const tipEl = document.getElementById('weekly-selection-tip')
+    const count = this.weeklySelection.selectedIds.size
+    if (countEl) countEl.textContent = `已选 ${count} 篇`
+
+    let rangeLabel = ''
+    if (count > 0) {
+      const diaries = this.getSelectedDiaries()
+      const range = this.getWeeklyDateRangeFromDiaries(diaries)
+      rangeLabel = range ? `范围：${this.formatRangeLabel(range.startDate, range.endDate)}` : ''
+    }
+    if (rangeEl) rangeEl.textContent = rangeLabel
+
+    let tip = ''
+    if (count === 0) {
+      tip = '请选择至少一篇日记'
+    } else if (count < 3) {
+      tip = `已选 ${count} 篇，建议至少 3 篇以获得更好的效果`
+    }
+    if (tipEl) tipEl.textContent = tip
+  }
+
+  updateWeeklyGenerateState() {
+    const btnGenerate = document.getElementById('btn-generate-weekly')
+    if (btnGenerate) {
+      btnGenerate.disabled = this.weeklySelection.selectedIds.size === 0
+    }
+  }
+
+  getWeeklyRangeByType(type) {
+    const storage = new DiaryStorage()
+    const now = new Date()
+    if (type === 'this-week') {
+      return storage.getWeekRangeByDate(now)
+    }
+    if (type === 'last-week') {
+      const lastWeek = new Date(now)
+      lastWeek.setDate(now.getDate() - 7)
+      return storage.getWeekRangeByDate(lastWeek)
+    }
+    return {
+      startDate: this.weeklySelection.startDate,
+      endDate: this.weeklySelection.endDate
+    }
+  }
+
+  getWeeklyVisibleDiaries() {
+    if (this.weeklySelection.mode === 'manual') {
+      return this.weeklyAllDiaries
+    }
+    const { startDate, endDate } = this.weeklySelection
+    if (!startDate || !endDate) return []
+    const start = new Date(startDate)
+    const end = new Date(endDate)
+    end.setHours(23, 59, 59, 999)
+    return this.weeklyAllDiaries.filter(diary => {
+      const date = new Date(diary.date)
+      return date >= start && date <= end
+    })
+  }
+
+  selectAllWeeklyDiaries() {
+    const diaries = this.weeklyVisibleDiaries.length > 0 ? this.weeklyVisibleDiaries : this.getWeeklyVisibleDiaries()
+    this.weeklySelection.selectedIds = new Set(diaries.map(d => d.id))
+    this.renderWeeklySelector()
+  }
+
+  clearWeeklySelection() {
+    this.weeklySelection.selectedIds.clear()
+    this.renderWeeklySelector()
+  }
+
+  async generateWeeklyFromSelection() {
+    const diaries = this.getSelectedDiaries()
+    if (diaries.length === 0) {
+      this.showToast('请选择至少一篇日记')
+      return
+    }
+
+    this.showWeeklyProgress(true, 0, '正在生成周记...', `已选 ${diaries.length} 篇`)
+
+    try {
+      const api = new ZhipuAPI()
+      const result = await api.generateWeeklySummary(diaries, (percent, status, info) => {
+        this.updateWeeklyProgress(percent, status, info)
+      })
+
+      const range = this.getWeeklyDateRangeFromDiaries(diaries)
+      const startDate = range?.startDate || diaries[0].date
+      const endDate = range?.endDate || diaries[diaries.length - 1].date
+      const weekInfo = this.getWeekInfoFromDate(startDate)
+      const weeklyId = `weekly_${startDate}_${endDate}`
+
+      this.currentWeeklyData = {
+        id: weeklyId,
+        year: weekInfo.year,
+        weekNumber: weekInfo.weekNumber,
+        startDate,
+        endDate,
+        diaryIds: diaries.map(d => d.id),
+        title: result.title,
+        summary: result.summary,
+        images: []
+      }
+      this.weeklyImages = []
+
+      this.showWeeklyResult(result.title, result.summary)
+      this.bindWeeklyModalEvents()
+    } catch (error) {
+      this.showToast(error.message)
+      this.hideWeeklyModal()
+    }
+  }
+
+  getSelectedDiaries() {
+    return this.weeklyAllDiaries
+      .filter(diary => this.weeklySelection.selectedIds.has(diary.id))
+      .sort((a, b) => new Date(a.date) - new Date(b.date))
+  }
+
+  getWeeklyDateRangeFromDiaries(diaries) {
+    if (!diaries || diaries.length === 0) return null
+    const storage = new DiaryStorage()
+    const dates = diaries.map(d => new Date(d.date)).sort((a, b) => a - b)
+    return {
+      startDate: storage.formatDateToISO(dates[0]),
+      endDate: storage.formatDateToISO(dates[dates.length - 1])
+    }
+  }
+
+  getWeekInfoFromDate(dateStr) {
+    const storage = new DiaryStorage()
+    const date = new Date(dateStr)
+    return {
+      year: date.getFullYear(),
+      weekNumber: storage.getISOWeekNumber(date)
+    }
+  }
+
+  getWeeklyDiariesFromCurrent(storage) {
+    if (this.currentWeeklyData.diaryIds && this.currentWeeklyData.diaryIds.length > 0) {
+      const diaries = storage.getAll()
+      return diaries
+        .filter(diary => this.currentWeeklyData.diaryIds.includes(diary.id))
+        .sort((a, b) => new Date(a.date) - new Date(b.date))
+    }
+    if (this.currentWeeklyData.startDate && this.currentWeeklyData.endDate) {
+      return storage.getDiariesInDateRange(this.currentWeeklyData.startDate, this.currentWeeklyData.endDate)
+    }
+    if (this.currentWeeklyData.year && this.currentWeeklyData.weekNumber) {
+      return storage.getDiariesForWeek(this.currentWeeklyData.year, this.currentWeeklyData.weekNumber)
+    }
+    return []
+  }
+
+  getWeeklyDiaryPreview(diary) {
+    const normalized = this.normalizeDiaryContent(diary)
+    const content = normalized.content || ''
+    return content.length > 60 ? `${content.slice(0, 60)}...` : content
+  }
+
+  formatRangeLabel(startDate, endDate) {
+    const start = new Date(startDate)
+    const end = new Date(endDate)
+    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return ''
+    const startText = start.toLocaleDateString('zh-CN', { month: 'long', day: 'numeric' })
+    const endText = end.toLocaleDateString('zh-CN', { month: 'long', day: 'numeric' })
+    return `${startText} - ${endText}`
   }
 
   async regenerateWeekly() {
     if (!this.currentWeeklyData) return
 
     const storage = new DiaryStorage()
-    const diaries = storage.getDiariesForWeek(
-      this.currentWeeklyData.year,
-      this.currentWeeklyData.weekNumber
-    )
+    const diaries = this.getWeeklyDiariesFromCurrent(storage)
+    if (diaries.length === 0) {
+      this.showToast('没有找到可重新生成的日记')
+      return
+    }
 
     this.showWeeklyProgress(true, 0, '重新生成周记...', '准备中')
 
@@ -1230,15 +1863,168 @@ class UIManager {
     }
   }
 
+  async handleWeeklyStructureAnalysis() {
+    if (!this.currentWeeklyData) {
+      this.showToast('暂无可分析的周记')
+      return
+    }
+    const content = (this.currentWeeklyData.summary || '').trim()
+    if (content.length < Config.validation.minContentLength) {
+      this.showToast('内容太短，至少需要5个字符')
+      return
+    }
+
+    this.structureTargetType = 'weekly'
+    this.structureTargetId = this.currentWeeklyData.id
+    const api = new ZhipuAPI()
+    this.showStructureProgress(() => api.abort())
+
+    try {
+      const result = await api.analyzeStructure(content, (percent, status, info) => {
+        this.updateProgress(percent, status, info)
+      })
+      this.hideAnalysisProgress()
+      this.currentStructuredContent = result.structured_version || ''
+      this.showStructureModal(this.currentStructuredContent)
+    } catch (error) {
+      this.hideAnalysisProgress()
+      if (error.message.includes('请求频率')) {
+        this.showToast(error.message)
+      } else if (error.message.includes('网络') || error.message.includes('取消')) {
+        this.showToast('网络问题，请稍后重试')
+      } else if (error.message.includes('超时')) {
+        this.showToast('结构优化超时，请重试')
+      } else {
+        this.showToast(error.message)
+      }
+    }
+  }
+
   saveWeekly() {
     if (!this.currentWeeklyData) return
 
     const storage = new DiaryStorage()
+    this.currentWeeklyData = {
+      ...this.currentWeeklyData,
+      images: [...this.weeklyImages]
+    }
     const weekly = storage.createWeekly(this.currentWeeklyData)
 
     this.hideWeeklyModal()
     this.showWeeklyList()
     this.showToast('周记已保存')
+  }
+
+  editWeekly(id) {
+    const storage = new DiaryStorage()
+    const weekly = storage.getWeeklyById(id)
+
+    if (!weekly) {
+      this.showToast('周记不存在')
+      return
+    }
+
+    this.showWeeklyEditor(weekly, true)
+  }
+
+  openWeeklyEditorFromCurrent() {
+    if (!this.currentWeeklyData) {
+      this.showToast('暂无可编辑的周记')
+      return
+    }
+    const storage = new DiaryStorage()
+    const existing = storage.getWeeklyById(this.currentWeeklyData.id)
+    const data = existing ? { ...existing } : { ...this.currentWeeklyData }
+    this.showWeeklyEditor(data, Boolean(existing))
+  }
+
+  showWeeklyEditor(weekly, isExisting) {
+    this.showWeeklyModal()
+    this.weeklyEditingExisting = Boolean(isExisting)
+    this.currentWeeklyData = { ...weekly }
+
+    const title = document.getElementById('weekly-modal-title')
+    if (title) title.textContent = '编辑周记'
+
+    const selector = document.getElementById('weekly-selector')
+    const selectionFooter = document.getElementById('weekly-selection-footer')
+    const progress = document.getElementById('weekly-progress')
+    const result = document.getElementById('weekly-result')
+    const empty = document.getElementById('weekly-empty')
+    const footer = document.getElementById('weekly-modal-footer')
+    const editor = document.getElementById('weekly-editor')
+    const editorFooter = document.getElementById('weekly-editor-footer')
+
+    if (selector) selector.classList.add('hidden')
+    if (selectionFooter) selectionFooter.classList.add('hidden')
+    if (progress) progress.classList.add('hidden')
+    if (result) result.classList.add('hidden')
+    if (empty) empty.classList.add('hidden')
+    if (footer) footer.classList.add('hidden')
+    if (editor) editor.classList.remove('hidden')
+    if (editorFooter) editorFooter.classList.remove('hidden')
+
+    const titleInput = document.getElementById('weekly-editor-title')
+    const summaryInput = document.getElementById('weekly-editor-summary')
+    if (titleInput) titleInput.value = weekly.title || ''
+    if (summaryInput) summaryInput.value = weekly.summary || ''
+    this.weeklyImages = Array.isArray(weekly.images) ? [...weekly.images] : []
+    this.updateWeeklyImagePreview()
+
+    const btnCancel = document.getElementById('btn-cancel-weekly-edit')
+    const btnSave = document.getElementById('btn-save-weekly-edit')
+
+    if (btnCancel) {
+      btnCancel.onclick = () => {
+        if (this.weeklyEditingExisting) {
+          this.hideWeeklyModal()
+          this.showWeeklyList()
+        } else {
+          this.showWeeklyResult(this.currentWeeklyData.title, this.currentWeeklyData.summary)
+        }
+      }
+    }
+
+    if (btnSave) {
+      btnSave.onclick = () => this.saveWeeklyEdit()
+    }
+  }
+
+  saveWeeklyEdit() {
+    const titleInput = document.getElementById('weekly-editor-title')
+    const summaryInput = document.getElementById('weekly-editor-summary')
+    const titleValue = titleInput ? titleInput.value.trim() : ''
+    const summaryValue = summaryInput ? summaryInput.value.trim() : ''
+
+    if (!summaryValue) {
+      this.showToast('请输入周记内容')
+      return
+    }
+
+    const finalTitle = titleValue || this.currentWeeklyData?.title || '无标题'
+    const images = [...this.weeklyImages]
+    this.currentWeeklyData = {
+      ...this.currentWeeklyData,
+      title: finalTitle,
+      summary: summaryValue,
+      images
+    }
+
+    if (this.weeklyEditingExisting) {
+      const storage = new DiaryStorage()
+      storage.updateWeekly(this.currentWeeklyData.id, {
+        title: finalTitle,
+        summary: summaryValue,
+        images
+      })
+      this.hideWeeklyModal()
+      this.renderWeeklyList()
+      this.showToast('周记已更新')
+      return
+    }
+
+    this.showWeeklyResult(finalTitle, summaryValue)
+    this.showToast('周记内容已更新')
   }
 
   showWeeklyList() {
@@ -1266,16 +2052,25 @@ class UIManager {
       const startDate = new Date(weekly.startDate)
       const endDate = new Date(weekly.endDate)
       const dateRange = `${startDate.toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' })} - ${endDate.toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' })}`
+      const images = Array.isArray(weekly.images) ? weekly.images : []
+      const thumbUrl = images[0] || null
 
       return `
-        <div class="weekly-card" onclick="ui.viewWeekly('${weekly.id}')">
-          <div class="weekly-card-header">
-            <h3 class="weekly-card-title">${this.escapeHtml(weekly.title)}</h3>
-            <span class="weekly-card-date">${dateRange}</span>
-          </div>
-          <p class="weekly-card-summary">${this.escapeHtml(weekly.summary.substring(0, 150))}...</p>
-          <div class="weekly-card-footer">
-            <button class="btn-small" onclick="event.stopPropagation(); ui.deleteWeekly('${weekly.id}')">删除</button>
+        <div class="weekly-card" onclick="ui.showWeeklyViewer('${weekly.id}')">
+          <div class="weekly-card-body">
+            ${thumbUrl ? `<img src="${this.escapeHtml(thumbUrl)}" class="diary-thumbnail" onerror="this.style.display='none'">` : ''}
+            <div class="weekly-card-main">
+              <div class="weekly-card-header">
+                <h3 class="weekly-card-title">${this.escapeHtml(weekly.title)}</h3>
+                <span class="weekly-card-date">${dateRange}</span>
+              </div>
+              <p class="weekly-card-summary">${this.escapeHtml(weekly.summary.substring(0, 150))}...</p>
+              <div class="weekly-card-footer">
+                <button class="btn-small" onclick="event.stopPropagation(); ui.showWeeklyViewer('${weekly.id}')">查看</button>
+                <button class="btn-small" onclick="event.stopPropagation(); ui.editWeekly('${weekly.id}')">编辑</button>
+                <button class="btn-small" onclick="event.stopPropagation(); ui.deleteWeekly('${weekly.id}')">删除</button>
+              </div>
+            </div>
           </div>
         </div>
       `
@@ -1283,56 +2078,7 @@ class UIManager {
   }
 
   viewWeekly(id) {
-    const storage = new DiaryStorage()
-    const weekly = storage.getWeeklyById(id)
-
-    if (!weekly) {
-      this.showToast('周记不存在')
-      return
-    }
-
-    this.currentWeeklyData = weekly
-
-    const modal = document.getElementById('modal-weekly')
-    const titleEl = document.getElementById('weekly-modal-title')
-    const progress = document.getElementById('weekly-progress')
-    const result = document.getElementById('weekly-result')
-    const empty = document.getElementById('weekly-empty')
-    const footer = document.getElementById('weekly-modal-footer')
-
-    if (titleEl) titleEl.textContent = '周记详情'
-    if (progress) progress.classList.add('hidden')
-    if (result) result.classList.remove('hidden')
-    if (empty) empty.classList.add('hidden')
-    if (footer) footer.classList.remove('hidden')
-
-    const titleResultEl = document.getElementById('weekly-title')
-    const summaryResultEl = document.getElementById('weekly-summary')
-
-    if (titleResultEl) titleResultEl.textContent = weekly.title
-    if (summaryResultEl) summaryResultEl.textContent = weekly.summary
-
-    const btnRegenerate = document.getElementById('btn-regenerate-weekly')
-    const btnSave = document.getElementById('btn-save-weekly')
-
-    if (btnRegenerate) {
-      btnRegenerate.textContent = '重新生成'
-      btnRegenerate.onclick = () => this.regenerateWeekly()
-    }
-
-    if (btnSave) {
-      btnSave.style.display = 'none'
-    }
-
-    const btnClose = document.getElementById('btn-close-weekly')
-    if (btnClose) {
-      btnClose.onclick = () => {
-        this.hideWeeklyModal()
-        this.renderWeeklyList()
-      }
-    }
-
-    modal.classList.remove('hidden')
+    this.showWeeklyViewer(id)
   }
 
   deleteWeekly(id) {

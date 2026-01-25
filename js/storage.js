@@ -206,7 +206,7 @@ class DiaryStorage {
   createWeekly(weekly) {
     const weeklies = this.getAllWeekly()
     const newWeekly = {
-      id: `weekly_${weekly.year}-W${weekly.weekNumber}`,
+      id: weekly.id || `weekly_${weekly.year}-W${weekly.weekNumber}`,
       year: weekly.year,
       weekNumber: weekly.weekNumber,
       startDate: weekly.startDate,
@@ -214,13 +214,14 @@ class DiaryStorage {
       diaryIds: weekly.diaryIds || [],
       summary: weekly.summary || '',
       title: weekly.title || '',
+      images: Array.isArray(weekly.images) ? weekly.images : [],
       createdAt: new Date().toISOString(),
       regenerations: 0
     }
 
-    const existingIndex = weeklies.findIndex(
-      w => w.year === weekly.year && w.weekNumber === weekly.weekNumber
-    )
+    const existingIndex = weekly.id
+      ? weeklies.findIndex(w => w.id === weekly.id)
+      : weeklies.findIndex(w => w.year === weekly.year && w.weekNumber === weekly.weekNumber)
 
     if (existingIndex >= 0) {
       weeklies[existingIndex] = newWeekly
@@ -277,15 +278,13 @@ class DiaryStorage {
   }
 
   getWeekStartDate(year, weekNumber) {
-    const simple = new Date(year, 0, 1 + (weekNumber - 1) * 7)
-    const dow = simple.getDay()
-    const weekStart = simple
-    if (dow <= 4) {
-      weekStart.setDate(simple.getDate() - simple.getDay() + 1)
-    } else {
-      weekStart.setDate(simple.getDate() + 8 - simple.getDay())
-    }
-    return weekStart
+    const jan4 = new Date(year, 0, 4)
+    const day = jan4.getDay() || 7
+    const monday = new Date(jan4)
+    monday.setDate(jan4.getDate() - day + 1)
+    const target = new Date(monday)
+    target.setDate(monday.getDate() + (weekNumber - 1) * 7)
+    return target
   }
 
   getWeekEndDate(year, weekNumber) {
@@ -298,20 +297,14 @@ class DiaryStorage {
   getCurrentWeekInfo() {
     const now = new Date()
     const year = now.getFullYear()
-    const oneJan = new Date(year, 0, 1)
-    const weekNumber = Math.ceil(
-      (((now - oneJan) / 86400000) + oneJan.getDay() + 1) / 7
-    )
+    const weekNumber = this.getISOWeekNumber(now)
+    const range = this.getWeekRangeByDate(now)
 
     return {
       year,
       weekNumber,
-      startDate: this.getWeekStartDate(year, weekNumber)
-        .toISOString()
-        .split('T')[0],
-      endDate: this.getWeekEndDate(year, weekNumber)
-        .toISOString()
-        .split('T')[0]
+      startDate: range.startDate,
+      endDate: range.endDate
     }
   }
 
@@ -325,13 +318,92 @@ class DiaryStorage {
     const weeklies = this.getAllWeekly()
     const now = new Date()
     const year = now.getFullYear()
-    const oneJan = new Date(year, 0, 1)
-    const weekNumber = Math.ceil(
-      (((now - oneJan) / 86400000) + oneJan.getDay() + 1) / 7
-    )
+    const weekNumber = this.getISOWeekNumber(now)
     return {
       total: weeklies.length,
       thisWeek: this.getWeeklyByWeek(year, weekNumber)
     }
+  }
+
+  getDiariesInDateRange(startDate, endDate) {
+    const diaries = this.getAll()
+    if (!startDate || !endDate) return []
+    const start = new Date(startDate)
+    const end = new Date(endDate)
+    end.setHours(23, 59, 59, 999)
+
+    return diaries.filter(diary => {
+      const diaryDate = new Date(diary.date)
+      return diaryDate >= start && diaryDate <= end
+    }).sort((a, b) => new Date(a.date) - new Date(b.date))
+  }
+
+  getDiariesLastWeek() {
+    const date = new Date()
+    date.setDate(date.getDate() - 7)
+    const range = this.getWeekRangeByDate(date)
+    return this.getDiariesInDateRange(range.startDate, range.endDate)
+  }
+
+  getWeekRangeByDate(dateInput) {
+    const date = new Date(dateInput)
+    const day = date.getDay()
+    const diff = day === 0 ? -6 : 1 - day
+    const startDate = new Date(date)
+    startDate.setDate(date.getDate() + diff)
+    const endDate = new Date(startDate)
+    endDate.setDate(startDate.getDate() + 6)
+
+    return {
+      startDate: this.formatDateToISO(startDate),
+      endDate: this.formatDateToISO(endDate)
+    }
+  }
+
+  getISOWeekNumber(dateInput) {
+    const date = new Date(Date.UTC(dateInput.getFullYear(), dateInput.getMonth(), dateInput.getDate()))
+    const dayNum = date.getUTCDay() || 7
+    date.setUTCDate(date.getUTCDate() + 4 - dayNum)
+    const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1))
+    return Math.ceil((((date - yearStart) / 86400000) + 1) / 7)
+  }
+
+  formatDateToISO(date) {
+    return date.toISOString().split('T')[0]
+  }
+
+  compressDiaryContent(content, maxLength = 500) {
+    const text = (content || '').trim()
+    if (!text) return ''
+    if (text.length <= maxLength) return text
+
+    const lines = text.split('\n').map(line => line.trim()).filter(Boolean)
+    if (lines.length <= 1) {
+      return text.slice(0, maxLength)
+    }
+
+    let result = ''
+    for (const line of lines) {
+      const next = result ? `${result}\n${line}` : line
+      if (next.length <= maxLength) {
+        result = next
+      } else {
+        break
+      }
+    }
+
+    if (!result) {
+      return lines[0].slice(0, maxLength)
+    }
+
+    if (result.length < maxLength * 0.6 && lines.length > 1) {
+      const tail = lines[lines.length - 1]
+      const available = maxLength - result.length - 3
+      if (available > 20) {
+        result = `${result}\n…\n${tail.slice(0, available)}`
+      }
+    }
+
+    return result.trim()
   }
 }

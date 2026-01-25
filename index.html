@@ -40,7 +40,10 @@
       <div id="view-weekly" class="view view-weekly hidden">
         <div class="weekly-header">
           <h2>周记本</h2>
-          <button id="btn-back-to-list" class="btn btn-secondary btn-small">返回日记</button>
+          <div class="weekly-header-actions">
+            <button id="btn-weekly-create" class="btn btn-primary btn-small">生成周记</button>
+            <button id="btn-back-to-list" class="btn btn-secondary btn-small">返回日记</button>
+          </div>
         </div>
         <div id="weekly-list" class="weekly-list">
         </div>
@@ -91,6 +94,7 @@
             </p>
           </div>
           <button id="btn-api-key" class="btn btn-primary">保存API Key</button>
+          <button id="btn-back-from-settings" class="btn btn-secondary">返回主页</button>
         </div>
 
         <div class="backup-section">
@@ -207,6 +211,49 @@
           <button id="btn-close-weekly" class="modal-close">&times;</button>
         </div>
         <div id="weekly-modal-body" class="weekly-modal-body">
+          <div id="weekly-selector" class="weekly-selector">
+            <div class="weekly-selector-controls">
+              <div class="weekly-control-row">
+                <label for="weekly-select-mode">选择方式</label>
+                <select id="weekly-select-mode" class="weekly-control-select">
+                  <option value="range">自然周/日期范围</option>
+                  <option value="manual">手动选择</option>
+                </select>
+              </div>
+              <div id="weekly-range-controls" class="weekly-control-row">
+                <label for="weekly-range-type">选择范围</label>
+                <select id="weekly-range-type" class="weekly-control-select">
+                  <option value="last-week">上周（周一至周日）</option>
+                  <option value="this-week">本周（周一至周日）</option>
+                  <option value="custom">自定义日期</option>
+                </select>
+              </div>
+              <div id="weekly-custom-range" class="weekly-control-row hidden">
+                <label>自定义区间</label>
+                <div class="weekly-date-range">
+                  <input type="date" id="weekly-range-start" class="weekly-date-input">
+                  <span class="weekly-date-separator">至</span>
+                  <input type="date" id="weekly-range-end" class="weekly-date-input">
+                </div>
+              </div>
+            </div>
+            <div class="weekly-selection-summary">
+              <span id="weekly-selected-count">已选 0 篇</span>
+              <span id="weekly-selected-range"></span>
+            </div>
+            <div id="weekly-diary-list" class="weekly-diary-list"></div>
+            <div id="weekly-selection-tip" class="weekly-selection-tip"></div>
+          </div>
+          <div id="weekly-editor" class="weekly-editor hidden">
+            <label class="weekly-editor-label">周记标题</label>
+            <input id="weekly-editor-title" class="weekly-editor-input" type="text" placeholder="输入周记标题">
+            <label class="weekly-editor-label">周记内容</label>
+            <div class="editor-toolbar">
+              <button id="btn-weekly-insert-image" class="btn btn-secondary btn-small" title="插入图片">📷 插入图片</button>
+            </div>
+            <div id="weekly-editor-images" class="editor-images hidden"></div>
+            <textarea id="weekly-editor-summary" class="editor-content weekly-editor-textarea" placeholder="输入周记内容"></textarea>
+          </div>
           <div id="weekly-progress" class="weekly-progress hidden">
             <div class="progress-header">
               <span class="progress-spinner"></span>
@@ -219,12 +266,26 @@
           </div>
           <div id="weekly-result" class="weekly-result hidden">
             <div id="weekly-title" class="weekly-title"></div>
+            <div id="weekly-result-images" class="editor-images hidden"></div>
             <div id="weekly-summary" class="weekly-summary"></div>
           </div>
           <div id="weekly-empty" class="weekly-empty hidden">
           </div>
         </div>
+        <div id="weekly-selection-footer" class="weekly-selection-footer">
+          <div class="weekly-selection-actions">
+            <button id="btn-weekly-select-all" class="btn btn-secondary btn-small">全选</button>
+            <button id="btn-weekly-clear" class="btn btn-secondary btn-small">清空</button>
+          </div>
+          <button id="btn-generate-weekly" class="btn btn-primary">生成周记</button>
+        </div>
+        <div id="weekly-editor-footer" class="weekly-editor-footer hidden">
+          <button id="btn-cancel-weekly-edit" class="btn btn-secondary">取消</button>
+          <button id="btn-save-weekly-edit" class="btn btn-primary">保存修改</button>
+        </div>
         <div id="weekly-modal-footer" class="weekly-modal-footer hidden">
+          <button id="btn-edit-weekly" class="btn btn-secondary">编辑</button>
+          <button id="btn-weekly-structure" class="btn btn-secondary">结构分析</button>
           <button id="btn-regenerate-weekly" class="btn btn-secondary">重新生成</button>
           <button id="btn-save-weekly" class="btn btn-primary">保存周记</button>
         </div>
