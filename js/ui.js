@@ -1,7 +1,9 @@
 class UIManager {
   constructor() {
     this.currentDiaryId = null
+    this.currentImages = []
     this.elements = {}
+    this.isInsertImageMode = false
     this.init()
   }
 
@@ -22,6 +24,7 @@ class UIManager {
       btnSettings: document.getElementById('btn-settings'),
       btnBack: document.getElementById('btn-back'),
       btnSave: document.getElementById('btn-save'),
+      btnSaveOnly: document.getElementById('btn-save-only'),
       btnApiKey: document.getElementById('btn-api-key'),
       btnWeekly: document.getElementById('btn-weekly'),
       btnBackToList: document.getElementById('btn-back-to-list'),
@@ -38,7 +41,14 @@ class UIManager {
       analysisContent: document.getElementById('analysis-content'),
       analysisRewritten: document.getElementById('analysis-rewritten'),
       settingsApiKey: document.getElementById('settings-api-key'),
-      toast: document.getElementById('toast')
+      toast: document.getElementById('toast'),
+      btnInsertImage: document.getElementById('btn-insert-image'),
+      modalInsertImage: document.getElementById('modal-insert-image'),
+      btnCloseImageModal: document.getElementById('btn-close-image-modal'),
+      btnCancelInsert: document.getElementById('btn-cancel-insert'),
+      btnConfirmInsert: document.getElementById('btn-confirm-insert'),
+      imageUrlInput: document.getElementById('image-url-input'),
+      editorImages: document.getElementById('editor-images')
     }
   }
 
@@ -55,6 +65,9 @@ class UIManager {
     if (this.elements.btnSave) {
       this.elements.btnSave.addEventListener('click', () => this.handleSave())
     }
+    if (this.elements.btnSaveOnly) {
+      this.elements.btnSaveOnly.addEventListener('click', () => this.handleSaveOnly())
+    }
     if (this.elements.btnApiKey) {
       this.elements.btnApiKey.addEventListener('click', () => this.saveApiKey())
     }
@@ -63,6 +76,74 @@ class UIManager {
     }
     if (this.elements.btnBackToList) {
       this.elements.btnBackToList.addEventListener('click', () => this.showList())
+    }
+    if (this.elements.btnInsertImage) {
+      this.elements.btnInsertImage.addEventListener('click', () => this.showInsertImageModal())
+    }
+    if (this.elements.btnCloseImageModal) {
+      this.elements.btnCloseImageModal.addEventListener('click', () => this.hideInsertImageModal())
+    }
+    if (this.elements.btnCancelInsert) {
+      this.elements.btnCancelInsert.addEventListener('click', () => this.hideInsertImageModal())
+    }
+    if (this.elements.btnConfirmInsert) {
+      this.elements.btnConfirmInsert.addEventListener('click', () => this.insertImage())
+    }
+    if (this.elements.editorContent) {
+      this.elements.editorContent.addEventListener('paste', (e) => this.handlePaste(e))
+    }
+    if (this.elements.editorImages) {
+      this.elements.editorImages.addEventListener('click', (e) => this.handleRemoveImage(e))
+    }
+  }
+
+  showInsertImageModal() {
+    this.isInsertImageMode = true
+    this.elements.imageUrlInput.value = ''
+    this.elements.modalInsertImage.classList.remove('hidden')
+    this.elements.imageUrlInput.focus()
+  }
+
+  hideInsertImageModal() {
+    this.isInsertImageMode = false
+    this.elements.modalInsertImage.classList.add('hidden')
+  }
+
+  insertImage() {
+    const url = this.elements.imageUrlInput.value.trim()
+    if (!url) {
+      this.showToast('请输入图片链接')
+      return
+    }
+
+    if (!this.currentImages.includes(url)) {
+      this.currentImages.push(url)
+    }
+    this.hideInsertImageModal()
+    this.updateWordCount()
+    this.updateImagePreview()
+    this.elements.editorContent.focus()
+  }
+
+  handlePaste(e) {
+    if (this.isInsertImageMode) {
+      return
+    }
+    if (this.elements.modalInsertImage && !this.elements.modalInsertImage.classList.contains('hidden')) {
+      return
+    }
+    if (document.activeElement === this.elements.imageUrlInput) {
+      return
+    }
+    const paste = (e.clipboardData || window.clipboardData).getData('text')
+    if (paste && paste.match(/^https?:\/\/[^\s]+?\.(jpg|jpeg|png|gif|webp|bmp|svg)(\?.*)?$/i)) {
+      e.preventDefault()
+      if (!this.currentImages.includes(paste)) {
+        this.currentImages.push(paste)
+      }
+      this.updateWordCount()
+      this.updateImagePreview()
+      this.showToast('已自动识别并插入图片链接')
     }
   }
 
@@ -86,15 +167,19 @@ class UIManager {
       const diary = storage.getById(diaryId)
       if (diary) {
         this.elements.editorTitle.value = diary.title
-        this.elements.editorContent.value = diary.finalVersion || diary.content
+        const normalized = this.normalizeDiaryContent(diary)
+        this.elements.editorContent.value = normalized.content
+        this.currentImages = normalized.images
         this.currentDiaryId = diaryId
       }
     } else {
       this.elements.editorTitle.value = ''
       this.elements.editorContent.value = ''
+      this.currentImages = []
       this.currentDiaryId = null
     }
     this.updateWordCount()
+    this.updateImagePreview()
     this.bindWordCountEvent()
     this.showView('editor')
     this.elements.editorContent.focus()
@@ -119,25 +204,37 @@ class UIManager {
       return
     }
 
-    this.elements.diaryList.innerHTML = diaries.map(diary => `
+    this.elements.diaryList.innerHTML = diaries.map(diary => {
+      const normalized = this.normalizeDiaryContent(diary)
+      const content = normalized.content
+      const images = normalized.images
+      const thumbUrl = images[0] || null
+      const previewText = content.substring(0, 100)
+
+      return `
       <div class="diary-card" data-id="${diary.id}">
-        <div class="diary-card-header">
-          <h3 class="diary-card-title">${this.escapeHtml(diary.title)}</h3>
-          <span class="diary-card-date">${this.formatDate(diary.date)}</span>
-        </div>
-        <p class="diary-card-preview">${this.escapeHtml((diary.finalVersion || diary.content).substring(0, 100))}...</p>
-        <div class="diary-card-footer">
-          <span class="diary-card-status ${diary.isAnalyzed ? 'analyzed' : ''}">
-            ${diary.isAnalyzed ? '已分析' : '未分析'}
-          </span>
-          <div class="diary-card-actions">
-            <button class="btn-small" onclick="ui.showViewer('${diary.id}')">查看</button>
-            <button class="btn-small" onclick="ui.showEditor('${diary.id}')">编辑</button>
-            <button class="btn-small btn-danger" onclick="ui.deleteDiary('${diary.id}')">删除</button>
+        <div class="diary-card-body">
+          ${thumbUrl ? `<img src="${this.escapeHtml(thumbUrl)}" class="diary-thumbnail" onerror="this.style.display='none'">` : ''}
+          <div class="diary-card-main">
+            <div class="diary-card-header">
+              <h3 class="diary-card-title">${this.escapeHtml(diary.title)}</h3>
+              <span class="diary-card-date">${this.formatDate(diary.date)}</span>
+            </div>
+            <p class="diary-card-preview">${this.escapeHtml(previewText)}...</p>
+            <div class="diary-card-footer">
+              <span class="diary-card-status ${diary.isAnalyzed ? 'analyzed' : ''}">
+                ${diary.isAnalyzed ? '已分析' : '未分析'}
+              </span>
+              <div class="diary-card-actions">
+                <button class="btn-small" onclick="ui.showViewer('${diary.id}')">查看</button>
+                <button class="btn-small" onclick="ui.showEditor('${diary.id}')">编辑</button>
+                <button class="btn-small btn-danger" onclick="ui.deleteDiary('${diary.id}')">删除</button>
+              </div>
+            </div>
           </div>
         </div>
       </div>
-    `).join('')
+    `}).join('')
   }
 
   async handleSave() {
@@ -154,10 +251,12 @@ class UIManager {
     let diary
 
     try {
+      const updates = { content, title, images: [...this.currentImages] }
+
       if (this.currentDiaryId) {
-        diary = storage.update(this.currentDiaryId, { content, title })
+        diary = storage.update(this.currentDiaryId, updates)
       } else {
-        diary = storage.create({ content, title })
+        diary = storage.create(updates)
         this.currentDiaryId = diary.id
       }
 
@@ -200,6 +299,42 @@ class UIManager {
 
     } catch (error) {
       this.hideAnalysisProgress()
+      this.showToast(error.message)
+    }
+  }
+
+  async handleSaveOnly() {
+    const content = this.elements.editorContent.value.trim()
+    const title = this.elements.editorTitle.value.trim() ||
+      this.extractTitle(content)
+
+    if (content.length < Config.validation.minContentLength) {
+      this.showToast('内容太短，至少需要5个字符')
+      return
+    }
+
+    const storage = new DiaryStorage()
+
+    try {
+      const updates = {
+        content,
+        title,
+        images: [...this.currentImages],
+        analysis: null,
+        isAnalyzed: false,
+        finalVersion: null
+      }
+
+      if (this.currentDiaryId) {
+        storage.update(this.currentDiaryId, updates)
+      } else {
+        const diary = storage.create(updates)
+        this.currentDiaryId = diary.id
+      }
+
+      this.renderDiaryList()
+      this.showToast('已保存（未分析）')
+    } catch (error) {
       this.showToast(error.message)
     }
   }
@@ -362,7 +497,55 @@ class UIManager {
   }
 
   bindWordCountEvent() {
-    this.elements.editorContent.oninput = () => this.updateWordCount()
+    this.elements.editorContent.oninput = () => {
+      this.updateWordCount()
+      this.updateImagePreview()
+    }
+  }
+
+  updateImagePreview() {
+    if (!this.elements.editorImages) return
+    if (this.currentImages.length === 0) {
+      this.elements.editorImages.innerHTML = ''
+      this.elements.editorImages.classList.add('hidden')
+      return
+    }
+
+    this.elements.editorImages.classList.remove('hidden')
+    this.elements.editorImages.innerHTML = this.currentImages.map(url => `
+      <div class="editor-image-item">
+        <img src="${this.escapeHtml(url)}" alt="图片">
+        <button class="editor-image-remove" data-url="${this.escapeHtml(url)}">×</button>
+      </div>
+    `).join('')
+  }
+
+  handleRemoveImage(e) {
+    const button = e.target.closest('.editor-image-remove')
+    if (!button) return
+    const url = button.dataset.url
+    if (!url) return
+    this.currentImages = this.currentImages.filter(item => item !== url)
+    this.updateImagePreview()
+    this.updateWordCount()
+  }
+
+  normalizeDiaryContent(diary) {
+    const rawContent = diary.finalVersion || diary.content || ''
+    const images = Array.isArray(diary.images) ? [...diary.images] : []
+    const lines = rawContent.split('\n')
+    const filtered = lines.filter(line => {
+      const trimmed = line.trim()
+      if (trimmed.startsWith('img:')) {
+        const url = trimmed.replace(/^img:/, '').trim()
+        if (url && !images.includes(url)) {
+          images.push(url)
+        }
+        return false
+      }
+      return true
+    })
+    return { content: filtered.join('\n').trim(), images }
   }
 
   checkApiKey() {
@@ -509,8 +692,10 @@ class UIManager {
     const diary = storage.getById(diaryId)
     if (!diary) return
 
-    const content = diary.finalVersion || diary.content
+    const normalized = this.normalizeDiaryContent(diary)
+    const content = normalized.content
     const article = document.getElementById('viewer-article')
+    const images = normalized.images
 
     const paragraphs = content.split('\n').filter(p => p.trim())
 
@@ -518,6 +703,12 @@ class UIManager {
       <h1 class="viewer-title">${this.escapeHtml(diary.title)}</h1>
       <div class="viewer-date">${this.formatDate(diary.date)}</div>
     `
+
+    if (images.length > 0) {
+      html += images.map(url => `
+        <img src="${this.escapeHtml(url)}" onerror="this.outerHTML='<div class=\\'image-placeholder\\'>图片加载失败</div>'">
+      `).join('')
+    }
 
     paragraphs.forEach((para, index) => {
       if (index === 0 && para.length > 0) {

@@ -16,7 +16,8 @@ class ZhipuAPI {
   }
 
   async analyze(content, retryCount = 0) {
-    if (!content || content.trim().length < Config.validation.minContentLength) {
+    const cleanedContent = this.stripImageLines(content || '')
+    if (!cleanedContent || cleanedContent.trim().length < Config.validation.minContentLength) {
       throw new Error('内容太短，无法分析')
     }
 
@@ -44,7 +45,7 @@ class ZhipuAPI {
             },
             {
               role: 'user',
-              content: content
+              content: cleanedContent
             }
           ],
           temperature: 0.3,
@@ -62,7 +63,7 @@ class ZhipuAPI {
           const delay = Math.pow(2, retryCount) * 1000
           console.log(`请求频率限制，等待${delay/1000}秒后重试...`)
           await this.delay(delay)
-          return this.analyze(content, retryCount + 1)
+          return this.analyze(cleanedContent, retryCount + 1)
         }
 
         throw this.handleErrorResponse(response.status, errorData)
@@ -187,6 +188,14 @@ class ZhipuAPI {
       this.controller.abort()
     }
   }
+
+  stripImageLines(content) {
+    return content
+      .split('\n')
+      .filter(line => !line.trim().startsWith('img:'))
+      .join('\n')
+      .trim()
+  }
 }
 
 class APIError extends Error {
@@ -240,7 +249,9 @@ class APIError extends Error {
           month: 'long',
           day: 'numeric'
         })
-        return `【${date}】${diary.title}\n${diary.finalVersion || diary.content}`
+        const content = diary.finalVersion || diary.content
+        const cleaned = this.stripImageLines(content || '')
+        return `【${date}】${diary.title}\n${cleaned}`
       })
       .join('\n\n')
 
@@ -355,4 +366,5 @@ class APIError extends Error {
       throw new Error('解析周记结果失败')
     }
   }
+
 }

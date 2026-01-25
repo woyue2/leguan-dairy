@@ -50,6 +50,10 @@
           <input type="text" id="editor-title" class="editor-title-input" placeholder="日记标题（可选）">
           <button id="btn-back" class="btn btn-secondary btn-small">返回列表</button>
         </div>
+        <div class="editor-toolbar">
+          <button id="btn-insert-image" class="btn btn-secondary btn-small" title="插入图片">📷 插入图片</button>
+        </div>
+        <div id="editor-images" class="editor-images hidden"></div>
         <textarea id="editor-content" class="editor-content" placeholder="今天发生了什么？写下你的心情和想法..."></textarea>
 
         <div id="analysis-progress" class="analysis-progress hidden">
@@ -66,7 +70,10 @@
 
         <div class="editor-footer">
           <span id="word-count" class="word-count">0 字</span>
-          <button id="btn-save" class="btn btn-primary">保存并分析</button>
+          <div class="editor-actions">
+            <button id="btn-save" class="btn btn-primary">保存并分析</button>
+            <button id="btn-save-only" class="btn btn-secondary">仅保存</button>
+          </div>
         </div>
       </div>
 
@@ -137,6 +144,25 @@
       <div class="viewer-content-wrapper">
         <article id="viewer-article" class="viewer-article">
         </article>
+      </div>
+    </div>
+
+    <div id="modal-insert-image" class="modal-overlay hidden">
+      <div class="modal">
+        <div class="modal-header">
+          <h2>插入图片</h2>
+          <button id="btn-close-image-modal" class="modal-close">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label for="image-url-input">图片链接</label>
+            <input type="text" id="image-url-input" class="form-control" placeholder="请输入图片 URL (例如: https://example.com/image.jpg)">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button id="btn-cancel-insert" class="btn btn-secondary">取消</button>
+          <button id="btn-confirm-insert" class="btn btn-primary">确认插入</button>
+        </div>
       </div>
     </div>
 

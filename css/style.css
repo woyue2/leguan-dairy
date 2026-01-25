@@ -202,7 +202,55 @@ body {
 }
 
 .editor-header {
-  margin-bottom: 20px;
+  margin-bottom: 10px;
+}
+
+.editor-toolbar {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 15px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.editor-images {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 15px;
+}
+
+.editor-image-item {
+  position: relative;
+  width: 120px;
+  height: 120px;
+  border-radius: var(--radius);
+  overflow: hidden;
+  border: 1px solid var(--border-color);
+  background: #fafafa;
+}
+
+.editor-image-item img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.editor-image-remove {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  cursor: pointer;
+  line-height: 22px;
+  font-size: 14px;
+  padding: 0;
 }
 
 .editor-title-input {
@@ -232,6 +280,11 @@ body {
   justify-content: space-between;
   align-items: center;
   margin-top: 20px;
+}
+
+.editor-actions {
+  display: flex;
+  gap: 10px;
 }
 
 .word-count {
@@ -418,6 +471,48 @@ body {
 .form-group input:focus {
   outline: none;
   border-color: var(--primary-color);
+}
+
+.image-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f0f0f0;
+  color: var(--text-secondary);
+  padding: 30px;
+  text-align: center;
+  border-radius: var(--radius);
+  margin: 10px 0;
+  border: 1px dashed var(--border-color);
+  width: 100%;
+  font-size: 0.9rem;
+}
+
+.diary-content img,
+.viewer-article img {
+  max-width: 100%;
+  border-radius: var(--radius);
+  margin: 10px 0;
+  box-shadow: var(--shadow);
+  display: block;
+}
+
+.diary-thumbnail {
+  width: 80px;
+  height: 80px;
+  object-fit: cover;
+  border-radius: var(--radius);
+  flex-shrink: 0;
+}
+
+.diary-card-body {
+  display: flex;
+  gap: 15px;
+}
+
+.diary-card-main {
+  flex: 1;
+  min-width: 0;
 }
 
 .toast {
