@@ -301,6 +301,220 @@ class ZhipuAPI {
       .trim()
   }
 
+  getImgURLOutputType(inputType) {
+    const type = (inputType || '').toLowerCase()
+    if (type === 'image/jpeg' || type === 'image/jpg') {
+      return 'image/jpeg'
+    }
+    if (type === 'image/webp') {
+      return 'image/webp'
+    }
+    return 'image/jpeg'
+  }
+
+  getImgURLOutputFilename(name, outputType) {
+    const base = (name || 'image').replace(/\.[^/.]+$/, '')
+    if (outputType === 'image/webp') {
+      return `${base}.webp`
+    }
+    return `${base}.jpg`
+  }
+
+  loadImageFromFile(file) {
+    return new Promise((resolve, reject) => {
+      const url = URL.createObjectURL(file)
+      const img = new Image()
+      img.onload = () => {
+        URL.revokeObjectURL(url)
+        resolve(img)
+      }
+      img.onerror = () => {
+        URL.revokeObjectURL(url)
+        reject(new Error('图片读取失败'))
+      }
+      img.src = url
+    })
+  }
+
+  canvasToBlob(canvas, type, quality) {
+    return new Promise((resolve, reject) => {
+      canvas.toBlob(blob => {
+        if (!blob) {
+          reject(new Error('图片压缩失败'))
+          return
+        }
+        resolve(blob)
+      }, type, quality)
+    })
+  }
+
+  resizeImageToCanvas(img, maxWidth) {
+    const scale = Math.min(1, maxWidth / img.width)
+    const width = Math.round(img.width * scale)
+    const height = Math.round(img.height * scale)
+    const canvas = document.createElement('canvas')
+    canvas.width = width
+    canvas.height = height
+    const ctx = canvas.getContext('2d')
+    ctx.drawImage(img, 0, 0, width, height)
+    return canvas
+  }
+
+  async compressImage(file, maxSizeMB = Config.imgurl.maxSizeMB, maxWidth = Config.imgurl.maxWidth, quality = Config.imgurl.quality, minQuality = Config.imgurl.minQuality, maxTries = Config.imgurl.maxCompressTries) {
+    const maxSize = maxSizeMB * 1024 * 1024
+    if (file.size < maxSize) {
+      return {
+        blob: file,
+        filename: file.name || 'image',
+        skipped: true
+      }
+    }
+
+    const img = await this.loadImageFromFile(file)
+    const outputType = this.getImgURLOutputType(file.type)
+    let currentQuality = quality
+    let attempt = 0
+    let lastBlob = null
+
+    while (attempt < maxTries) {
+      const canvas = this.resizeImageToCanvas(img, maxWidth)
+      const blob = await this.canvasToBlob(canvas, outputType, currentQuality)
+      lastBlob = blob
+      if (blob.size < maxSize) {
+        return {
+          blob,
+          filename: this.getImgURLOutputFilename(file.name, outputType),
+          skipped: false
+        }
+      }
+      currentQuality = Math.max(minQuality, currentQuality - 0.1)
+      attempt += 1
+    }
+
+    if (lastBlob && lastBlob.size < maxSize) {
+      return {
+        blob: lastBlob,
+        filename: this.getImgURLOutputFilename(file.name, outputType),
+        skipped: false
+      }
+    }
+
+    throw new Error('图片过大，无法压缩至 3MB 以下，请选择更小的图片')
+  }
+
+  uploadToImgURL(blob, filename, config, onProgress) {
+    return new Promise((resolve, reject) => {
+      const formData = new FormData()
+      formData.append('file', blob, filename)
+
+      // V3 接口规范：Authorization: Bearer <token>
+      const token = (config.token || '').trim()
+      
+      const xhr = new XMLHttpRequest()
+      // 强制使用 V3 路径
+      xhr.open('POST', Config.getImgURLUploadUrl(config.base_url, true))
+      xhr.responseType = 'json'
+
+      // 设置 Authorization Header
+      const headerValue = token.toLowerCase().startsWith('bearer ') ? token : `Bearer ${token}`
+      xhr.setRequestHeader('Authorization', headerValue)
+
+      xhr.upload.onprogress = (event) => {
+        if (event.lengthComputable && onProgress) {
+          const percent = Math.round((event.loaded / event.total) * 100)
+          onProgress(percent)
+        }
+      }
+
+      xhr.onload = () => {
+        const response = xhr.response || {}
+        if (xhr.status === 200 && response.code === 200) {
+          resolve({
+            url: response.data?.url || ''
+          })
+          return
+        }
+        if (response.code === 401) {
+          const error = new Error('图床 Token 已失效，请重新配置')
+          error.code = 'UNAUTHORIZED'
+          reject(error)
+          return
+        }
+        if (response.code === 429) {
+          const error = new Error('请稍后再试')
+          error.code = 'RATE_LIMIT'
+          reject(error)
+          return
+        }
+        if (xhr.status === 401) {
+          const error = new Error('图床 Token 已失效，请重新配置')
+          error.code = 'UNAUTHORIZED'
+          reject(error)
+          return
+        }
+        if (xhr.status === 429) {
+          const error = new Error('请稍后再试')
+          error.code = 'RATE_LIMIT'
+          reject(error)
+          return
+        }
+        if (xhr.status >= 500) {
+          const error = new Error('服务器错误，请重试')
+          error.code = 'SERVER_ERROR'
+          reject(error)
+          return
+        }
+        const responseMessage = response.msg || response.message || ''
+        if (responseMessage === 'invalid.token') {
+          const error = new Error('图床 Token 无效，请到 ImgURL 后台重新生成')
+          error.code = 'UNAUTHORIZED'
+          reject(error)
+          return
+        }
+        if (responseMessage === 'invalid.uid') {
+          const error = new Error('图床 UID 无效，请检查配置')
+          error.code = 'UPLOAD_FAILED'
+          reject(error)
+          return
+        }
+        const error = new Error(responseMessage || '上传失败')
+        error.code = 'UPLOAD_FAILED'
+        reject(error)
+      }
+
+      xhr.onerror = () => {
+        const error = new Error('网络错误')
+        error.code = 'NETWORK_ERROR'
+        reject(error)
+      }
+
+      xhr.onabort = () => {
+        const error = new Error('上传已取消')
+        error.code = 'ABORTED'
+        reject(error)
+      }
+
+      xhr.send(formData)
+    })
+  }
+
+  async createTestImageBlob() {
+    const canvas = document.createElement('canvas')
+    canvas.width = 1
+    canvas.height = 1
+    const ctx = canvas.getContext('2d')
+    ctx.fillStyle = '#ffffff'
+    ctx.fillRect(0, 0, 1, 1)
+    return this.canvasToBlob(canvas, 'image/png', 0.9)
+  }
+
+  async testImgURLConnection(config) {
+    const blob = await this.createTestImageBlob()
+    const filename = `test-${Date.now()}.png`
+    const result = await this.uploadToImgURL(blob, filename, config)
+    return result
+  }
+
   async generateWeeklySummary(diaries, onProgress) {
     if (!diaries || diaries.length === 0) {
       throw new Error('没有可用于生成周记的日记')

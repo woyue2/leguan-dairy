@@ -7,6 +7,9 @@ class UIManager {
     this.structureTargetId = null
     this.weeklyImages = []
     this.imageInsertTarget = 'diary'
+    this.uploadTarget = 'diary'
+    this.lastUploadFile = null
+    this.lastUploadTarget = null
     this.elements = {}
     this.isInsertImageMode = false
     this.init()
@@ -61,16 +64,31 @@ class UIManager {
       settingsApiKey: document.getElementById('settings-api-key'),
       toast: document.getElementById('toast'),
       btnInsertImage: document.getElementById('btn-insert-image'),
+      btnUploadImage: document.getElementById('btn-upload-image'),
       modalInsertImage: document.getElementById('modal-insert-image'),
       btnCloseImageModal: document.getElementById('btn-close-image-modal'),
       btnCancelInsert: document.getElementById('btn-cancel-insert'),
       btnConfirmInsert: document.getElementById('btn-confirm-insert'),
       imageUrlInput: document.getElementById('image-url-input'),
+      imageUploadInput: document.getElementById('image-upload-input'),
+      imageUploadStatus: document.getElementById('image-upload-status'),
+      imageUploadText: document.getElementById('image-upload-text'),
+      btnRetryUpload: document.getElementById('btn-retry-upload'),
       editorImages: document.getElementById('editor-images'),
       btnWeeklyInsertImage: document.getElementById('btn-weekly-insert-image'),
+      btnWeeklyUploadImage: document.getElementById('btn-weekly-upload-image'),
       weeklyEditorSummary: document.getElementById('weekly-editor-summary'),
       weeklyEditorImages: document.getElementById('weekly-editor-images'),
-      weeklyResultImages: document.getElementById('weekly-result-images')
+      weeklyResultImages: document.getElementById('weekly-result-images'),
+      weeklyUploadStatus: document.getElementById('weekly-upload-status'),
+      weeklyUploadText: document.getElementById('weekly-upload-text'),
+      btnWeeklyRetryUpload: document.getElementById('btn-weekly-retry-upload'),
+      settingsImgurlBaseUrl: document.getElementById('settings-imgurl-base-url'),
+      settingsImgurlUid: document.getElementById('settings-imgurl-uid'),
+      settingsImgurlToken: document.getElementById('settings-imgurl-token'),
+      btnSaveImgurl: document.getElementById('btn-save-imgurl'),
+      btnTestImgurl: document.getElementById('btn-test-imgurl'),
+      imgurlTestStatus: document.getElementById('imgurl-test-status')
     }
   }
 
@@ -114,8 +132,14 @@ class UIManager {
     if (this.elements.btnInsertImage) {
       this.elements.btnInsertImage.addEventListener('click', () => this.showInsertImageModal('diary'))
     }
+    if (this.elements.btnUploadImage) {
+      this.elements.btnUploadImage.addEventListener('click', () => this.openImageUpload('diary'))
+    }
     if (this.elements.btnWeeklyInsertImage) {
       this.elements.btnWeeklyInsertImage.addEventListener('click', () => this.showInsertImageModal('weekly'))
+    }
+    if (this.elements.btnWeeklyUploadImage) {
+      this.elements.btnWeeklyUploadImage.addEventListener('click', () => this.openImageUpload('weekly'))
     }
     if (this.elements.btnCloseImageModal) {
       this.elements.btnCloseImageModal.addEventListener('click', () => this.hideInsertImageModal())
@@ -125,6 +149,15 @@ class UIManager {
     }
     if (this.elements.btnConfirmInsert) {
       this.elements.btnConfirmInsert.addEventListener('click', () => this.insertImage())
+    }
+    if (this.elements.imageUploadInput) {
+      this.elements.imageUploadInput.addEventListener('change', (e) => this.handleImageUploadChange(e))
+    }
+    if (this.elements.btnRetryUpload) {
+      this.elements.btnRetryUpload.addEventListener('click', () => this.retryImageUpload('diary'))
+    }
+    if (this.elements.btnWeeklyRetryUpload) {
+      this.elements.btnWeeklyRetryUpload.addEventListener('click', () => this.retryImageUpload('weekly'))
     }
     if (this.elements.editorContent) {
       this.elements.editorContent.addEventListener('paste', (e) => this.handlePaste(e))
@@ -152,6 +185,12 @@ class UIManager {
     }
     if (this.elements.btnCloseOriginalFooter) {
       this.elements.btnCloseOriginalFooter.addEventListener('click', () => this.hideOriginalModal())
+    }
+    if (this.elements.btnSaveImgurl) {
+      this.elements.btnSaveImgurl.addEventListener('click', () => this.saveImgURLConfig())
+    }
+    if (this.elements.btnTestImgurl) {
+      this.elements.btnTestImgurl.addEventListener('click', () => this.testImgURLConfig())
     }
   }
 
@@ -198,6 +237,200 @@ class UIManager {
       this.updateWordCount()
       this.updateImagePreview()
       this.elements.editorContent.focus()
+    }
+  }
+
+  openImageUpload(target) {
+    this.uploadTarget = target
+    if (!this.elements.imageUploadInput) return
+    this.elements.imageUploadInput.value = ''
+    this.elements.imageUploadInput.click()
+  }
+
+  handleImageUploadChange(e) {
+    const file = e.target.files && e.target.files[0]
+    if (!file) return
+    this.startImageUpload(file, this.uploadTarget)
+  }
+
+  retryImageUpload(target) {
+    if (!this.lastUploadFile || !this.lastUploadTarget) {
+      this.showToast('请重新选择图片')
+      return
+    }
+    if (target !== this.lastUploadTarget) {
+      this.showToast('请重新选择图片')
+      return
+    }
+    this.startImageUpload(this.lastUploadFile, this.lastUploadTarget, true)
+  }
+
+  validateUploadConfig() {
+    const storage = new DiaryStorage()
+    const config = storage.getImgURLConfig()
+    const baseUrl = (config.base_url || '').trim()
+    const token = (config.token || '').trim()
+    
+    if (!baseUrl || !token) {
+      return { valid: false, message: '请填写 ImgURL Base URL 和 Token' }
+    }
+
+    // 移除 V2/V3 自动判断，统一视为 V3 接口，不做 sk- 或 web- 强制校验，相信用户填写的 Token
+    // V3 接口只需要 Token，不需要 UID
+
+    try {
+      new URL(baseUrl)
+    } catch (error) {
+      return { valid: false, message: '图床 Base URL 格式不正确' }
+    }
+    return { valid: true, config: { base_url: baseUrl, token } }
+  }
+
+  async startImageUpload(file, target, isRetry = false) {
+    const validation = this.validateUploadConfig()
+    if (!validation.valid) {
+      this.showToast(validation.message)
+      return
+    }
+
+    const allowed = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp']
+    const type = (file.type || '').toLowerCase()
+    if (!allowed.includes(type)) {
+      this.showToast('不支持该格式')
+      return
+    }
+
+    this.lastUploadFile = file
+    this.lastUploadTarget = target
+
+    const api = new ZhipuAPI()
+    const maxSizeBytes = Config.imgurl.maxSizeMB * 1024 * 1024
+    if (file.size >= maxSizeBytes) {
+      this.showUploadStatus(target, '压缩中...', false)
+    } else {
+      this.showUploadStatus(target, '上传中 0%', false)
+    }
+
+    try {
+      const compressed = await api.compressImage(
+        file,
+        Config.imgurl.maxSizeMB,
+        Config.imgurl.maxWidth,
+        Config.imgurl.quality,
+        Config.imgurl.minQuality,
+        Config.imgurl.maxCompressTries
+      )
+
+      this.showUploadStatus(target, '上传中 0%', false)
+      const result = await api.uploadToImgURL(
+        compressed.blob,
+        compressed.filename,
+        validation.config,
+        (percent) => this.showUploadStatus(target, `上传中 ${percent}%`, false)
+      )
+
+      if (!result.url) {
+        throw new Error('上传失败')
+      }
+
+      this.hideUploadStatus(target)
+      this.addUploadedImage(result.url, target)
+      this.showToast('上传成功')
+      this.lastUploadFile = null
+      this.lastUploadTarget = null
+    } catch (error) {
+      if (error?.message) {
+        this.showUploadStatus(target, error.message, error.code !== 'UNAUTHORIZED')
+        if (error.code === 'UNAUTHORIZED') {
+          this.lastUploadFile = null
+          this.lastUploadTarget = null
+        }
+        if (!isRetry) {
+          this.showToast(error.message)
+        }
+      } else {
+        this.showUploadStatus(target, '上传失败', true)
+      }
+    }
+  }
+
+  addUploadedImage(url, target) {
+    const textLine = `img:${url}\n`
+    if (target === 'weekly') {
+      if (!this.weeklyImages.includes(url)) {
+        this.weeklyImages.push(url)
+      }
+      if (this.elements.weeklyEditorSummary) {
+        this.insertTextAtCursor(this.elements.weeklyEditorSummary, textLine)
+      }
+      if (this.currentWeeklyData) {
+        this.currentWeeklyData = {
+          ...this.currentWeeklyData,
+          images: [...this.weeklyImages]
+        }
+      }
+      this.updateWeeklyImagePreview()
+      return
+    }
+
+    if (!this.currentImages.includes(url)) {
+      this.currentImages.push(url)
+    }
+    if (this.elements.editorContent) {
+      this.insertTextAtCursor(this.elements.editorContent, textLine)
+    }
+    this.updateWordCount()
+    this.updateImagePreview()
+  }
+
+  insertTextAtCursor(textarea, text) {
+    if (!textarea) return
+    const start = textarea.selectionStart
+    const end = textarea.selectionEnd
+    const value = textarea.value || ''
+    const before = value.slice(0, start)
+    const after = value.slice(end)
+    textarea.value = `${before}${text}${after}`
+    const newPos = before.length + text.length
+    textarea.selectionStart = newPos
+    textarea.selectionEnd = newPos
+    textarea.focus()
+  }
+
+  showUploadStatus(target, text, allowRetry) {
+    if (target === 'weekly') {
+      if (this.elements.weeklyUploadStatus) {
+        this.elements.weeklyUploadStatus.classList.remove('hidden')
+      }
+      if (this.elements.weeklyUploadText) {
+        this.elements.weeklyUploadText.textContent = text
+      }
+      if (this.elements.btnWeeklyRetryUpload) {
+        this.elements.btnWeeklyRetryUpload.classList.toggle('hidden', !allowRetry)
+      }
+      return
+    }
+
+    if (this.elements.imageUploadStatus) {
+      this.elements.imageUploadStatus.classList.remove('hidden')
+    }
+    if (this.elements.imageUploadText) {
+      this.elements.imageUploadText.textContent = text
+    }
+    if (this.elements.btnRetryUpload) {
+      this.elements.btnRetryUpload.classList.toggle('hidden', !allowRetry)
+    }
+  }
+
+  hideUploadStatus(target) {
+    if (target === 'weekly') {
+      if (this.elements.weeklyUploadStatus) {
+        this.elements.weeklyUploadStatus.classList.add('hidden')
+      }
+      return
+    }
+    if (this.elements.imageUploadStatus) {
+      this.elements.imageUploadStatus.classList.add('hidden')
     }
   }
 
@@ -285,6 +518,7 @@ class UIManager {
     }
     this.updateWordCount()
     this.updateImagePreview()
+    this.hideUploadStatus('diary')
     this.bindWordCountEvent()
     this.showView('editor')
     this.elements.editorContent.focus()
@@ -292,6 +526,20 @@ class UIManager {
 
   showSettings() {
     this.elements.settingsApiKey.value = Config.getApiKey()
+    const storage = new DiaryStorage()
+    const config = storage.getImgURLConfig()
+    if (this.elements.settingsImgurlBaseUrl) {
+      this.elements.settingsImgurlBaseUrl.value = config.base_url || Config.imgurl.baseUrl
+    }
+    if (this.elements.settingsImgurlUid) {
+      this.elements.settingsImgurlUid.value = config.uid || ''
+    }
+    if (this.elements.settingsImgurlToken) {
+      this.elements.settingsImgurlToken.value = config.token || ''
+    }
+    if (this.elements.imgurlTestStatus) {
+      this.elements.imgurlTestStatus.textContent = ''
+    }
     this.showView('settings')
   }
 
@@ -451,7 +699,7 @@ class UIManager {
       }
 
       this.renderDiaryList()
-      this.showToast('已保存（未分析）')
+      this.showToast('已保存')
     } catch (error) {
       this.showToast(error.message)
     }
@@ -778,6 +1026,63 @@ class UIManager {
       this.showList()
     } else {
       this.showToast('请输入有效的API Key')
+    }
+  }
+
+  saveImgURLConfig() {
+    const baseUrl = (this.elements.settingsImgurlBaseUrl?.value || '').trim()
+    const token = (this.elements.settingsImgurlToken?.value || '').trim()
+
+    if (!baseUrl || !token) {
+      this.showToast('请完整填写图床配置')
+      return
+    }
+
+    try {
+      new URL(baseUrl)
+    } catch (error) {
+      this.showToast('图床 Base URL 格式不正确')
+      return
+    }
+
+    const storage = new DiaryStorage()
+    storage.saveImgURLConfig({ base_url: baseUrl, token })
+    this.showToast('保存成功')
+  }
+
+  async testImgURLConfig() {
+    const validation = this.validateUploadConfig()
+    if (!validation.valid) {
+      this.showToast(validation.message)
+      return
+    }
+
+    if (this.elements.imgurlTestStatus) {
+      this.elements.imgurlTestStatus.textContent = '测试中...'
+    }
+    if (this.elements.btnTestImgurl) {
+      this.elements.btnTestImgurl.disabled = true
+      this.elements.btnTestImgurl.textContent = '测试中...'
+    }
+
+    try {
+      const api = new ZhipuAPI()
+      await api.testImgURLConnection(validation.config)
+      if (this.elements.imgurlTestStatus) {
+        this.elements.imgurlTestStatus.textContent = '连接成功'
+      }
+      this.showToast('连接成功')
+    } catch (error) {
+      const message = error?.message || '连接失败'
+      if (this.elements.imgurlTestStatus) {
+        this.elements.imgurlTestStatus.textContent = message
+      }
+      this.showToast(message)
+    } finally {
+      if (this.elements.btnTestImgurl) {
+        this.elements.btnTestImgurl.disabled = false
+        this.elements.btnTestImgurl.textContent = '测试连接'
+      }
     }
   }
 
@@ -1295,6 +1600,7 @@ class UIManager {
     this.weeklyImages = []
     this.updateWeeklyImagePreview()
     this.updateWeeklyResultImages([])
+    this.hideUploadStatus('weekly')
     this.prepareWeeklySelector()
     this.showWeeklySelectorView()
   }

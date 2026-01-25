@@ -17,7 +17,8 @@ const Config = {
     diaries: 'diary_entries',
     offlineQueue: 'diary_offline_queue',
     settings: 'diary_settings',
-    weekly: 'weekly_entries'
+    weekly: 'weekly_entries',
+    imgurlConfig: 'diary_imgurl_config'
   },
 
   ui: {
@@ -29,6 +30,16 @@ const Config = {
   validation: {
     minContentLength: 5,
     maxOfflineQueueSize: 100
+  },
+
+  imgurl: {
+    baseUrl: 'https://www.imgurl.org',
+    uploadPath: '/api/v2/upload', // 默认为 V2，代码会根据 Token 格式自动调整
+    maxSizeMB: 3,
+    maxWidth: 1920,
+    quality: 0.8,
+    minQuality: 0.5,
+    maxCompressTries: 3
   },
 
   getApiKey() {
@@ -49,6 +60,25 @@ const Config = {
 
   hasApiKey() {
     return this.getApiKey().length > 0
+  },
+
+  normalizeImgURLBaseUrl(baseUrl) {
+    const input = (baseUrl || this.imgurl.baseUrl || '').trim()
+    if (!input) {
+      return this.imgurl.baseUrl
+    }
+    const uploadPath = this.imgurl.uploadPath.replace(/\/+$/, '')
+    let normalized = input.replace(/\/+$/, '')
+    if (normalized.toLowerCase().endsWith(uploadPath.toLowerCase())) {
+      normalized = normalized.slice(0, -uploadPath.length).replace(/\/+$/, '')
+    }
+    return normalized || this.imgurl.baseUrl
+  },
+
+  getImgURLUploadUrl(baseUrl, isV3 = false) {
+    const normalized = this.normalizeImgURLBaseUrl(baseUrl)
+    const uploadPath = isV3 ? '/api/v3/upload' : '/api/v2/upload'
+    return `${normalized}${uploadPath}`
   },
 
   getDefaultSystemPrompt() {

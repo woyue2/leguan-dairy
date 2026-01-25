@@ -177,6 +177,36 @@ class DiaryStorage {
     }
   }
 
+  getImgURLConfig() {
+    const raw = localStorage.getItem(Config.storageKeys.imgurlConfig)
+    const fallback = {
+      base_url: Config.imgurl.baseUrl,
+      uid: '',
+      token: ''
+    }
+    if (!raw) return fallback
+    try {
+      const parsed = JSON.parse(raw)
+      return {
+        base_url: Config.normalizeImgURLBaseUrl(parsed.base_url || Config.imgurl.baseUrl),
+        uid: parsed.uid || '',
+        token: parsed.token || ''
+      }
+    } catch (e) {
+      return fallback
+    }
+  }
+
+  saveImgURLConfig(config) {
+    const payload = {
+      base_url: Config.normalizeImgURLBaseUrl(config.base_url || Config.imgurl.baseUrl),
+      uid: config.uid || '',
+      token: config.token || ''
+    }
+    localStorage.setItem(Config.storageKeys.imgurlConfig, JSON.stringify(payload))
+    return payload
+  }
+
   // ========== 周记相关方法 ==========
 
   getWeeklyStorageKey() {
