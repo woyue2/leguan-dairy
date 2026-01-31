@@ -685,13 +685,13 @@ class UIManager {
 
       this.showToast('保存成功')
       this.showAnalysisProgress()
+      this.showView('editor')
 
       const offline = new OfflineQueue()
       if (!navigator.onLine) {
         this.hideAnalysisProgress()
         offline.add(offline.createAnalysisTask(content, diary.id))
         this.showToast('已加入离线队列，有网时自动分析')
-        this.showList()
         return
       }
 
@@ -704,7 +704,6 @@ class UIManager {
         this.hideAnalysisProgress()
         storage.saveAnalysis(diary.id, result)
         this.showAnalysisModal(diary.id, result)
-        this.showList()
       } catch (error) {
         this.hideAnalysisProgress()
         if (error.message.includes('请求频率')) {

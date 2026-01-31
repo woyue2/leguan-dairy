@@ -1,0 +1,28 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+*.tar
+diary-app.tar
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor/IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Logs
+*.log
+npm-debug.log*
+
+# Docker
+.dockerignore
+
+# OS
+.env
+.env.local

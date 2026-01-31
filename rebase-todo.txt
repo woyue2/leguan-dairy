@@ -1,0 +1,6 @@
+﻿pick f0d756a feat(ui): 支持外部图片链接插入
+pick 245942d feat(ui): 新增结构化分析功能
+pick f9e1505 feat(weekly): 优化周记生成和查看功能
+pick 1eec1d4 feat(api): 新增 ImgURL 图床上传功能
+pick 59021e0 feat(ui): 分离图片上传区域，支持头部和底部图片
+pick 9c98284 docs: 更新规范文档
