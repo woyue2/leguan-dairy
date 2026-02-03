@@ -1,0 +1,1082 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>“真棒” 动画设计展示台 (16款)</title>
+    <style>
+        :root {
+            --bg-color: #f0f2f5;
+            --card-bg: #ffffff;
+            --text-color: #333;
+            --accent-color: #4a90d9;
+        }
+
+        body {
+            font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            transition: background-color 0.3s;
+        }
+
+        /* Background Modes */
+        body.mode-dark {
+            --bg-color: #1a1a1a;
+            --card-bg: #2d2d2d;
+            --text-color: #eee;
+        }
+
+        body.mode-transparent {
+            --bg-color: #e5e5f7;
+            --card-bg: transparent;
+        }
+
+        body.mode-transparent .card {
+            box-shadow: none;
+            border: 1px dashed #ccc;
+        }
+
+        /* Transparent Checkerboard Pattern */
+        body.mode-transparent .stage {
+            background-image: linear-gradient(45deg, #ccc 25%, transparent 25%), linear-gradient(-45deg, #ccc 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #ccc 75%), linear-gradient(-45deg, transparent 75%, #ccc 75%);
+            background-size: 20px 20px;
+            background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+            border-radius: 8px;
+            opacity: 0.5;
+        }
+
+        .controls {
+            margin-bottom: 30px;
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn-mode {
+            padding: 8px 16px;
+            border: 1px solid var(--accent-color);
+            background: white;
+            color: var(--accent-color);
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 0.9rem;
+        }
+
+        .btn-mode.active {
+            background: var(--accent-color);
+            color: white;
+        }
+
+        h1 {
+            margin-bottom: 30px;
+            color: var(--accent-color);
+            text-align: center;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 20px;
+            width: 100%;
+            max-width: 1200px;
+        }
+
+        .card {
+            background-color: var(--card-bg);
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: space-between;
+            height: 250px;
+            position: relative;
+            overflow: hidden;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+        }
+
+        .card-title {
+            font-size: 1.1rem;
+            font-weight: bold;
+            color: #666;
+            margin-bottom: 20px;
+            z-index: 10;
+            text-align: center;
+        }
+
+        .btn-trigger {
+            padding: 8px 16px;
+            border: 1px solid var(--accent-color);
+            background: transparent;
+            color: var(--accent-color);
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+            z-index: 10;
+        }
+
+        .btn-trigger:hover {
+            background: var(--accent-color);
+            color: white;
+        }
+
+        .stage {
+            flex: 1;
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+
+        /* Common Zhenbang Text */
+        .zhenbang {
+            font-size: 3rem;
+            font-weight: 900;
+            opacity: 0;
+            user-select: none;
+            position: absolute;
+        }
+
+        /* --- Design 1: Comic Pop (漫画弹窗) --- */
+        #d1 .zhenbang {
+            color: #FFD700;
+            -webkit-text-stroke: 2px #000;
+            text-shadow: 4px 4px 0 #000;
+            font-family: 'Arial Black', sans-serif;
+            transform: scale(0);
+        }
+
+        #d1.animate .zhenbang {
+            animation: comicPop 1.5s ease-out forwards;
+        }
+
+        @keyframes comicPop {
+            0% {
+                opacity: 0;
+                transform: scale(0) rotate(-15deg);
+            }
+
+            50% {
+                opacity: 1;
+                transform: scale(1.2) rotate(0deg);
+            }
+
+            70% {
+                transform: scale(0.9);
+            }
+
+            80% {
+                transform: scale(1);
+                opacity: 1;
+            }
+
+            100% {
+                opacity: 0;
+                transform: scale(1.5);
+            }
+        }
+
+        #d1.animate::before {
+            content: '';
+            position: absolute;
+            width: 200%;
+            height: 200%;
+            background-image: radial-gradient(circle, #000 1px, transparent 1.5px);
+            background-size: 10px 10px;
+            opacity: 0.1;
+            animation: fadeOut 1.5s forwards;
+        }
+
+        /* --- Design 2: Neon Pulse (霓虹脉冲) --- */
+        #d2 {
+            background-color: #1a1a1a;
+        }
+
+        #d2 .zhenbang {
+            color: #fff;
+            text-shadow: 0 0 5px #fff, 0 0 10px #fff, 0 0 20px #0ff, 0 0 30px #0ff, 0 0 40px #0ff;
+        }
+
+        #d2.animate .zhenbang {
+            animation: neonFlicker 2s forwards;
+        }
+
+        @keyframes neonFlicker {
+            0% {
+                opacity: 0;
+            }
+
+            10% {
+                opacity: 1;
+            }
+
+            15% {
+                opacity: 0.2;
+            }
+
+            20% {
+                opacity: 1;
+            }
+
+            25% {
+                opacity: 0.2;
+            }
+
+            30% {
+                opacity: 1;
+            }
+
+            70% {
+                opacity: 1;
+                text-shadow: 0 0 10px #fff, 0 0 20px #f0f, 0 0 40px #f0f, 0 0 60px #f0f;
+            }
+
+            100% {
+                opacity: 0;
+            }
+        }
+
+        /* --- Design 3: Traditional Stamp (印章) --- */
+        #d3 .zhenbang {
+            font-family: 'Kaiti', 'STKaiti', serif;
+            color: #d63031;
+            border: 4px solid #d63031;
+            padding: 10px;
+            border-radius: 4px;
+            background: radial-gradient(#fff, #f8d7da);
+            box-shadow: 0 0 0 2px #fff inset;
+        }
+
+        #d3.animate .zhenbang {
+            animation: stampImpact 1.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        }
+
+        @keyframes stampImpact {
+            0% {
+                opacity: 0;
+                transform: scale(3);
+            }
+
+            20% {
+                opacity: 1;
+                transform: scale(1);
+            }
+
+            30% {
+                transform: scale(1.05) rotate(2deg);
+            }
+
+            40% {
+                transform: scale(1) rotate(0deg);
+            }
+
+            80% {
+                opacity: 1;
+                filter: blur(0);
+            }
+
+            100% {
+                opacity: 0;
+                filter: blur(2px);
+                transform: scale(1.1);
+            }
+        }
+
+        /* --- Design 4: Confetti Burst (礼花绽放) --- */
+        #d4 .zhenbang {
+            color: #ff6b6b;
+            background: linear-gradient(45deg, #ff6b6b, #feca57);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        #d4.animate .zhenbang {
+            animation: floatUp 1.5s ease-out forwards;
+        }
+
+        @keyframes floatUp {
+            0% {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+
+            30% {
+                opacity: 1;
+                transform: translateY(-10px);
+            }
+
+            100% {
+                opacity: 0;
+                transform: translateY(-40px);
+            }
+        }
+
+        #d4.animate::after {
+            content: '🎉 ✨ 🎊';
+            position: absolute;
+            font-size: 2rem;
+            animation: explode 1.5s ease-out forwards;
+        }
+
+        @keyframes explode {
+            0% {
+                opacity: 0;
+                transform: scale(0.5);
+            }
+
+            20% {
+                opacity: 1;
+                transform: scale(1.5);
+            }
+
+            100% {
+                opacity: 0;
+                transform: scale(2);
+            }
+        }
+
+        /* --- Design 5: Retro 8-Bit (像素游戏) --- */
+        @font-face {
+            font-family: 'Pixel';
+            src: local('Consolas');
+        }
+
+        #d5 .zhenbang {
+            font-family: 'Courier New', monospace;
+            color: #4cd137;
+            text-shadow: 2px 2px 0 #000;
+            letter-spacing: 4px;
+        }
+
+        #d5.animate .zhenbang {
+            animation: pixelUp 1.2s steps(4) forwards;
+        }
+
+        @keyframes pixelUp {
+            0% {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+
+            20% {
+                opacity: 1;
+                transform: translateY(0);
+            }
+
+            40% {
+                opacity: 0;
+            }
+
+            60% {
+                opacity: 1;
+            }
+
+            80% {
+                opacity: 1;
+            }
+
+            100% {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+        }
+
+        /* --- Design 6: Fluid Splash (果冻飞溅) --- */
+        #d6 .zhenbang {
+            color: #00a8ff;
+        }
+
+        #d6.animate .zhenbang {
+            animation: jelly 1s linear forwards;
+        }
+
+        @keyframes jelly {
+            0% {
+                opacity: 0;
+                transform: scale(0.3, 0.3);
+            }
+
+            30% {
+                opacity: 1;
+                transform: scale(1.25, 0.75);
+            }
+
+            40% {
+                transform: scale(0.75, 1.25);
+            }
+
+            50% {
+                transform: scale(1.15, 0.85);
+            }
+
+            65% {
+                transform: scale(0.95, 1.05);
+            }
+
+            75% {
+                transform: scale(1.05, 0.95);
+            }
+
+            100% {
+                opacity: 0;
+                transform: scale(2, 2);
+            }
+        }
+
+        /* --- Design 7: Golden Shine (流光溢彩) --- */
+        #d7 .zhenbang {
+            background: linear-gradient(to right, #bf953f, #fcf6ba, #b38728, #fbf5b7, #aa771c);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            background-size: 200% auto;
+        }
+
+        #d7.animate .zhenbang {
+            animation: shine 1.5s ease-in-out forwards;
+        }
+
+        @keyframes shine {
+            0% {
+                opacity: 0;
+                background-position: 0% 50%;
+                transform: scale(0.9);
+            }
+
+            30% {
+                opacity: 1;
+                transform: scale(1);
+            }
+
+            70% {
+                opacity: 1;
+                background-position: 100% 50%;
+            }
+
+            100% {
+                opacity: 0;
+                transform: scale(1.1);
+            }
+        }
+
+        /* --- Design 8: Rocket Launch (火箭升空) --- */
+        #d8 .zhenbang {
+            color: #e84118;
+        }
+
+        #d8.animate .zhenbang {
+            animation: launch 1s ease-in forwards;
+        }
+
+        #d8.animate .zhenbang::after {
+            content: '🚀';
+            font-size: 1.5rem;
+            position: absolute;
+            right: -30px;
+            top: 0;
+        }
+
+        @keyframes launch {
+            0% {
+                opacity: 0;
+                transform: translateY(100px);
+            }
+
+            20% {
+                opacity: 1;
+                transform: translateY(0);
+            }
+
+            80% {
+                opacity: 1;
+                transform: translateY(-20px);
+            }
+
+            100% {
+                opacity: 0;
+                transform: translateY(-200px);
+            }
+        }
+
+        /* --- Design 9: Glitch Error (故障艺术) --- */
+        #d9 {
+            background-color: #000;
+        }
+
+        #d9 .zhenbang {
+            color: #fff;
+            font-family: monospace;
+            font-size: 3.5rem;
+        }
+
+        #d9.animate .zhenbang {
+            animation: glitch-anim 1s infinite alternate-reverse;
+            opacity: 1;
+        }
+
+        #d9.animate .zhenbang::before,
+        #d9.animate .zhenbang::after {
+            content: "真棒";
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #000;
+        }
+
+        #d9.animate .zhenbang::before {
+            color: #ff00ff;
+            animation: glitch-anim-1 2s infinite linear alternate-reverse;
+            left: 2px;
+            clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%);
+        }
+
+        #d9.animate .zhenbang::after {
+            color: #00ffff;
+            animation: glitch-anim-2 2s infinite linear alternate-reverse;
+            left: -2px;
+            clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%);
+        }
+
+        /* Simple dissolve out */
+        #d9.animate .stage {
+            animation: fadeOutSlow 2s 1s forwards;
+        }
+
+        @keyframes glitch-anim-1 {
+            0% {
+                clip-path: inset(20% 0 80% 0);
+            }
+
+            20% {
+                clip-path: inset(60% 0 10% 0);
+            }
+
+            40% {
+                clip-path: inset(40% 0 50% 0);
+            }
+
+            60% {
+                clip-path: inset(80% 0 5% 0);
+            }
+
+            80% {
+                clip-path: inset(10% 0 60% 0);
+            }
+
+            100% {
+                clip-path: inset(30% 0 30% 0);
+            }
+        }
+
+        @keyframes glitch-anim-2 {
+            0% {
+                clip-path: inset(10% 0 60% 0);
+            }
+
+            20% {
+                clip-path: inset(30% 0 20% 0);
+            }
+
+            40% {
+                clip-path: inset(70% 0 10% 0);
+            }
+
+            60% {
+                clip-path: inset(20% 0 50% 0);
+            }
+
+            80% {
+                clip-path: inset(50% 0 30% 0);
+            }
+
+            100% {
+                clip-path: inset(5% 0 80% 0);
+            }
+        }
+
+        /* --- Design 10: Typewriter (打字机) --- */
+        #d10 .zhenbang {
+            font-family: 'Courier New', monospace;
+            overflow: hidden;
+            white-space: nowrap;
+            border-right: .15em solid orange;
+            width: 0;
+            color: #333;
+        }
+
+        #d10.animate .zhenbang {
+            opacity: 1;
+            width: 0;
+            animation: typing 1s steps(2, end) forwards, blink-caret .75s step-end infinite;
+        }
+
+        @keyframes typing {
+            from {
+                width: 0
+            }
+
+            to {
+                width: 2.2em
+            }
+
+            /* Approx width for 2 chars */
+        }
+
+        @keyframes blink-caret {
+
+            from,
+            to {
+                border-color: transparent
+            }
+
+            50% {
+                border-color: orange;
+            }
+        }
+
+        /* --- Design 11: Rubber Band (橡皮筋) --- */
+        #d11 .zhenbang {
+            color: #e056fd;
+        }
+
+        #d11.animate .zhenbang {
+            animation: rubberBand 1s forwards;
+        }
+
+        @keyframes rubberBand {
+            0% {
+                opacity: 0;
+                transform: scale3d(1, 1, 1);
+            }
+
+            30% {
+                opacity: 1;
+                transform: scale3d(1.25, 0.75, 1);
+            }
+
+            40% {
+                transform: scale3d(0.75, 1.25, 1);
+            }
+
+            50% {
+                transform: scale3d(1.15, 0.85, 1);
+            }
+
+            65% {
+                transform: scale3d(0.95, 1.05, 1);
+            }
+
+            75% {
+                transform: scale3d(1.05, 0.95, 1);
+            }
+
+            100% {
+                opacity: 0;
+                transform: scale3d(1, 1, 1);
+            }
+        }
+
+        /* --- Design 12: Smoky Reveal (烟雾弥漫) --- */
+        #d12 {
+            background-color: #333;
+        }
+
+        #d12 .zhenbang {
+            color: transparent;
+            text-shadow: 0 0 10px rgba(255, 255, 255, 0.8);
+        }
+
+        #d12.animate .zhenbang {
+            animation: smoky 2s forwards;
+        }
+
+        @keyframes smoky {
+            0% {
+                opacity: 0;
+                text-shadow: 0 0 40px rgba(255, 255, 255, 0);
+                transform: translate3d(0, 30px, 0) rotate(10deg);
+            }
+
+            20% {
+                opacity: 1;
+                text-shadow: 0 0 10px rgba(255, 255, 255, 0.8);
+            }
+
+            50% {
+                opacity: 1;
+                text-shadow: 0 0 0 rgba(255, 255, 255, 1);
+                transform: translate3d(0, 0, 0) rotate(0deg);
+                color: #fff;
+            }
+
+            100% {
+                opacity: 0;
+                text-shadow: 0 0 40px rgba(255, 255, 255, 0);
+                transform: translate3d(0, -30px, 0) rotate(-10deg);
+                color: transparent;
+            }
+        }
+
+        /* --- Design 13: Heartbeat (心动) --- */
+        #d13 .zhenbang {
+            color: #ff3366;
+        }
+
+        #d13.animate .zhenbang {
+            animation: heartBeat 1.3s ease-in-out forwards;
+            opacity: 1;
+        }
+
+        #d13.animate .zhenbang::after {
+            content: '❤';
+            display: block;
+            font-size: 1rem;
+            text-align: center;
+            margin-top: -10px;
+        }
+
+        @keyframes heartBeat {
+            0% {
+                transform: scale(1);
+                opacity: 0;
+            }
+
+            14% {
+                transform: scale(1.3);
+                opacity: 1;
+            }
+
+            28% {
+                transform: scale(1);
+            }
+
+            42% {
+                transform: scale(1.3);
+            }
+
+            70% {
+                transform: scale(1);
+                opacity: 1;
+            }
+
+            100% {
+                transform: scale(1);
+                opacity: 0;
+            }
+        }
+
+        /* --- Design 14: Spotlight (聚光灯) --- */
+        #d14 {
+            background-color: #222;
+        }
+
+        #d14 .zhenbang {
+            color: #444;
+            font-family: 'Times New Roman', serif;
+        }
+
+        #d14.animate .zhenbang {
+            color: #444;
+            opacity: 1;
+            background: linear-gradient(to right, #444 0%, #fff 50%, #444 100%);
+            background-size: 50% 100%;
+            -webkit-background-clip: text;
+            background-clip: text;
+            animation: spotlightAnim 2s linear forwards;
+        }
+
+        @keyframes spotlightAnim {
+            0% {
+                background-position: -150% 0;
+                color: rgba(255, 255, 255, 0.1);
+            }
+
+            50% {
+                color: rgba(255, 255, 255, 0.1);
+            }
+
+            100% {
+                background-position: 250% 0;
+                color: rgba(255, 255, 255, 0);
+            }
+        }
+
+        /* --- Design 15: Bouncing Ball (弹球) --- */
+        #d15 .zhenbang {
+            color: #ff9f43;
+        }
+
+        #d15.animate .zhenbang {
+            animation: bounceInDown 1s forwards;
+        }
+
+        @keyframes bounceInDown {
+
+            0%,
+            60%,
+            75%,
+            90%,
+            100% {
+                animation-timing-function: cubic-bezier(0.215, 0.61, 0.355, 1);
+            }
+
+            0% {
+                opacity: 0;
+                transform: translate3d(0, -3000px, 0);
+            }
+
+            60% {
+                opacity: 1;
+                transform: translate3d(0, 25px, 0);
+            }
+
+            75% {
+                transform: translate3d(0, -10px, 0);
+            }
+
+            90% {
+                transform: translate3d(0, 5px, 0);
+            }
+
+            100% {
+                opacity: 0;
+                transform: translate3d(0, 0, 0);
+            }
+
+            /* Modified to fade out at end */
+        }
+
+        /* --- Design 16: 3D Spin (3D旋转) --- */
+        #d16 {
+            perspective: 500px;
+        }
+
+        #d16 .zhenbang {
+            color: #5f27cd;
+            transform-style: preserve-3d;
+        }
+
+        #d16.animate .zhenbang {
+            animation: spin3D 1.5s forwards;
+        }
+
+        @keyframes spin3D {
+            0% {
+                opacity: 0;
+                transform: rotateY(90deg);
+            }
+
+            30% {
+                opacity: 1;
+                transform: rotateY(-20deg);
+            }
+
+            60% {
+                transform: rotateY(10deg);
+            }
+
+            80% {
+                opacity: 1;
+                transform: rotateY(0deg);
+            }
+
+            100% {
+                opacity: 0;
+                transform: translateY(-50px);
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <h1>“真棒” 动画效果展示台 (16款)</h1>
+
+    <div class="controls">
+        <button class="btn-mode active" onclick="setMode('light')">浅色背景</button>
+        <button class="btn-mode" onclick="setMode('dark')">深色背景</button>
+        <button class="btn-mode" onclick="setMode('transparent')">透明(网格)背景</button>
+    </div>
+
+    <p style="text-align: center; margin-bottom: 30px; color: #666;">点击卡片预览动画效果</p>
+
+    <div class="grid">
+        <div class="card" id="d1" onclick="play(1)">
+            <div class="card-title">1. Comic Pop (漫画弹窗)</div>
+            <div class="stage">
+                <div class="zhenbang">真棒!</div>
+            </div>
+            <button class="btn-trigger">播放</button>
+        </div>
+
+        <div class="card" id="d2" onclick="play(2)">
+            <div class="card-title" style="color:#aaa">2. Neon Pulse (霓虹脉冲)</div>
+            <div class="stage">
+                <div class="zhenbang">真棒!</div>
+            </div>
+            <button class="btn-trigger" style="border-color:#0ff; color:#0ff">播放</button>
+        </div>
+
+        <div class="card" id="d3" onclick="play(3)">
+            <div class="card-title">3. Traditional Stamp (印章)</div>
+            <div class="stage">
+                <div class="zhenbang">真棒</div>
+            </div>
+            <button class="btn-trigger">播放</button>
+        </div>
+
+        <div class="card" id="d4" onclick="play(4)">
+            <div class="card-title">4. Confetti Burst (礼花绽放)</div>
+            <div class="stage">
+                <div class="zhenbang">真棒!</div>
+            </div>
+            <button class="btn-trigger">播放</button>
+        </div>
+
+        <div class="card" id="d5" onclick="play(5)">
+            <div class="card-title">5. Retro 8-Bit (像素游戏)</div>
+            <div class="stage">
+                <div class="zhenbang">真棒!</div>
+            </div>
+            <button class="btn-trigger">播放</button>
+        </div>
+
+        <div class="card" id="d6" onclick="play(6)">
+            <div class="card-title">6. Fluid Splash (果冻飞溅)</div>
+            <div class="stage">
+                <div class="zhenbang">真棒!</div>
+            </div>
+            <button class="btn-trigger">播放</button>
+        </div>
+
+        <div class="card" id="d7" onclick="play(7)">
+            <div class="card-title">7. Golden Shine (流光溢彩)</div>
+            <div class="stage">
+                <div class="zhenbang">真棒!</div>
+            </div>
+            <button class="btn-trigger">播放</button>
+        </div>
+
+        <div class="card" id="d8" onclick="play(8)">
+            <div class="card-title">8. Rocket Launch (火箭升空)</div>
+            <div class="stage">
+                <div class="zhenbang">真棒!</div>
+            </div>
+            <button class="btn-trigger">播放</button>
+        </div>
+
+        <!-- New Designs -->
+
+        <div class="card" id="d9" onclick="play(9)">
+            <div class="card-title" style="color: #666; background: #fff; padding: 2px 5px;">9. Glitch Error (故障艺术)
+            </div>
+            <div class="stage">
+                <div class="zhenbang">真棒</div>
+            </div>
+            <button class="btn-trigger">播放</button>
+        </div>
+
+        <div class="card" id="d10" onclick="play(10)">
+            <div class="card-title">10. Typewriter (打字机)</div>
+            <div class="stage">
+                <div class="zhenbang">真棒</div>
+            </div>
+            <button class="btn-trigger">播放</button>
+        </div>
+
+        <div class="card" id="d11" onclick="play(11)">
+            <div class="card-title">11. Rubber Band (橡皮筋)</div>
+            <div class="stage">
+                <div class="zhenbang">真棒!</div>
+            </div>
+            <button class="btn-trigger">播放</button>
+        </div>
+
+        <div class="card" id="d12" onclick="play(12)">
+            <div class="card-title">12. Smoky Reveal (烟雾弥漫)</div>
+            <div class="stage">
+                <div class="zhenbang">真棒</div>
+            </div>
+            <button class="btn-trigger" style="border-color: #aaa; color: #aaa;">播放</button>
+        </div>
+
+        <div class="card" id="d13" onclick="play(13)">
+            <div class="card-title">13. Heartbeat (心动)</div>
+            <div class="stage">
+                <div class="zhenbang">真棒</div>
+            </div>
+            <button class="btn-trigger">播放</button>
+        </div>
+
+        <div class="card" id="d14" onclick="play(14)">
+            <div class="card-title">14. Spotlight (聚光灯)</div>
+            <div class="stage">
+                <div class="zhenbang">真棒</div>
+            </div>
+            <button class="btn-trigger" style="border-color: #666; color: #666;">播放</button>
+        </div>
+
+        <div class="card" id="d15" onclick="play(15)">
+            <div class="card-title">15. Bouncing Ball (弹球)</div>
+            <div class="stage">
+                <div class="zhenbang">真棒!</div>
+            </div>
+            <button class="btn-trigger">播放</button>
+        </div>
+
+        <div class="card" id="d16" onclick="play(16)">
+            <div class="card-title">16. 3D Spin (3D旋转)</div>
+            <div class="stage">
+                <div class="zhenbang">真棒!</div>
+            </div>
+            <button class="btn-trigger">播放</button>
+        </div>
+
+    </div>
+
+    <script>
+        function play(id) {
+            const card = document.getElementById('d' + id);
+            // Reset animation
+            card.classList.remove('animate');
+            void card.offsetWidth; // trigger reflow
+            card.classList.add('animate');
+        }
+
+        function setMode(mode) {
+            document.body.className = 'mode-' + mode;
+            document.querySelectorAll('.btn-mode').forEach(btn => {
+                btn.classList.toggle('active', btn.textContent.includes(mode === 'light' ? '浅色' : mode === 'dark' ? '深色' : '透明'));
+            });
+
+            // Reset specific card backgrounds for transparent mode to allow seeing through
+            const cards = document.querySelectorAll('.card');
+            cards.forEach(card => {
+                if (mode === 'transparent') {
+                    // Temporarily override specific backgrounds for better visibility
+                    if (card.id === 'd2' || card.id === 'd9' || card.id === 'd12' || card.id === 'd14') {
+                        card.style.backgroundColor = 'transparent';
+                    }
+                } else {
+                    card.style.backgroundColor = ''; // Revert to CSS
+                }
+            });
+        }
+    </script>
+</body>
+
+</html>

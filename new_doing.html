@@ -1,0 +1,1439 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Write Doing - 智能日记本</title>
+    <link rel="stylesheet" href="css/style.css">
+    <style>
+        /* Fixed CSS Variables for this page */
+        :root {
+            --accent-color: #4a90d9;
+            --text-color: #2c3e50;
+            --text-secondary: #7f8c8d;
+            --danger-color: #ff6b6b;
+            --purple-color: #5f27cd;
+        }
+
+        /* Cornell Note Layout Specific Styles */
+        .doing-container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        .cornell-header {
+            border-bottom: 2px solid var(--accent-color);
+            padding-bottom: 15px;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .cornell-title-group h1 {
+            margin: 0;
+            font-size: 2rem;
+            color: var(--text-color);
+        }
+
+        .cornell-date {
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+
+        .cornell-body {
+            display: flex;
+            flex: 1;
+            gap: 20px;
+            overflow: hidden;
+            /* Prevent body scroll, handle internally */
+        }
+
+        /* Left Column: Cues/Context (30%) */
+        .cornell-left {
+            width: 30%;
+            border-right: 1px solid #e0e0e0;
+            padding-right: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .cue-card {
+            background: rgba(255, 255, 255, 0.7);
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+        }
+
+        .cue-title {
+            font-weight: bold;
+            color: var(--accent-color);
+            margin-bottom: 8px;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .tag-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .tag-btn {
+            padding: 4px 10px;
+            background: #f0f2f5;
+            border: 1px solid #ccc;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .tag-btn:hover {
+            background: #e0e0e0;
+        }
+
+        /* Active state: White text on Accent Background */
+        .tag-btn.active {
+            background: var(--accent-color);
+            color: white;
+            border-color: var(--accent-color);
+        }
+
+        /* Right Column: Notes/Tasks (70%) */
+        .cornell-right {
+            width: 70%;
+            display: flex;
+            flex-direction: column;
+            padding-left: 10px;
+        }
+
+        .todo-list {
+            flex: 1;
+            overflow-y: auto;
+            padding-right: 10px;
+        }
+
+        .todo-item {
+            display: flex;
+            align-items: center;
+            background: white;
+            padding: 12px 15px;
+            margin-bottom: 10px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.03);
+            transition: all 0.2s;
+            border-left: 4px solid #ccc;
+            /* Default gray border */
+            position: relative;
+        }
+
+        .todo-item:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.08);
+        }
+
+        .todo-item.priority-urgent {
+            border-left-color: var(--danger-color);
+        }
+
+        .todo-item.priority-deep {
+            border-left-color: var(--purple-color);
+        }
+
+        .todo-item.priority-normal {
+            border-left-color: var(--accent-color);
+        }
+
+        .todo-checkbox-wrapper {
+            position: relative;
+            width: 24px;
+            height: 24px;
+            margin-right: 15px;
+        }
+
+        .todo-checkbox {
+            width: 24px;
+            height: 24px;
+            cursor: pointer;
+            accent-color: var(--accent-color);
+        }
+
+        .todo-text {
+            flex: 1;
+            font-size: 1.1rem;
+        }
+
+        .todo-item.completed .todo-text {
+            text-decoration: line-through;
+            color: #999;
+        }
+
+        .todo-meta {
+            display: block;
+            font-size: 0.8rem;
+            color: #999;
+            margin-top: 4px;
+        }
+
+        .todo-remark {
+            margin-left: 10px;
+            padding: 5px;
+            border: none;
+            border-bottom: 1px dashed #ccc;
+            background: transparent;
+            font-size: 0.9rem;
+            color: #666;
+            width: 150px;
+            /* Or flex-basis */
+            transition: all 0.2s;
+        }
+
+        .todo-remark:focus {
+            outline: none;
+            border-bottom-color: var(--accent-color);
+            background: #fdfdfd;
+        }
+
+        .add-task-bar {
+            margin-top: 15px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.05);
+        }
+
+        .input-row {
+            display: flex;
+            gap: 10px;
+        }
+
+        .task-input {
+            flex: 1;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 1rem;
+            padding: 10px;
+            outline: none;
+        }
+
+        .task-input:focus {
+            border-color: var(--accent-color);
+        }
+
+        .options-row {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            font-size: 0.9rem;
+            color: #666;
+        }
+
+        .priority-selector {
+            display: flex;
+            gap: 10px;
+        }
+
+        .p-radio {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            cursor: pointer;
+        }
+
+        .p-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+
+        .btn-add {
+            background: var(--accent-color);
+            color: white;
+            border: none;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            font-size: 1.5rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.3s;
+        }
+
+        .btn-add:hover {
+            background: #357abd;
+        }
+
+        /* Footer: Summary */
+        .cornell-footer {
+            border-top: 2px solid #e0e0e0;
+            padding-top: 15px;
+            margin-top: 20px;
+            background: rgba(255, 255, 255, 0.5);
+        }
+
+        .progress-section {
+            margin-bottom: 10px;
+        }
+
+        .progress-bar-bg {
+            width: 100%;
+            height: 8px;
+            background: #e0e0e0;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #4facfe 0%, #00f2fe 100%);
+            width: 0%;
+            transition: width 0.5s ease;
+        }
+
+        .reflection-input {
+            width: 100%;
+            border: none;
+            background: transparent;
+            border-bottom: 1px dashed #999;
+            padding: 5px;
+            font-style: italic;
+            color: #666;
+        }
+
+        .reflection-input:focus {
+            outline: none;
+            border-bottom-style: solid;
+            border-bottom-color: var(--accent-color);
+        }
+
+        /* --- Zhen Bang Animation Container --- */
+        #zhenbang-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 9999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: transparent;
+            /* Default */
+            transition: background 0.3s;
+        }
+
+        #zhenbang-overlay.dark-mode {
+            background: rgba(0, 0, 0, 0.85);
+            /* For specific animations like Neon */
+        }
+
+        .stage-box {
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* Common Zhenbang Text */
+        .zhenbang {
+            font-size: 5rem;
+            font-weight: 900;
+            opacity: 0;
+            position: absolute;
+            user-select: none;
+        }
+
+        /* ========================================= */
+        /* === 16 ANIMATION STYLES PORTED BELOW === */
+        /* ========================================= */
+
+        /* --- 1. Comic Pop --- */
+        .anim-1 .zhenbang {
+            color: #FFD700;
+            -webkit-text-stroke: 2px #000;
+            text-shadow: 4px 4px 0 #000;
+            font-family: 'Arial Black', sans-serif;
+            transform: scale(0);
+        }
+
+        .anim-1.animate .zhenbang {
+            animation: comicPop 1.5s ease-out forwards;
+        }
+
+        @keyframes comicPop {
+            0% {
+                opacity: 0;
+                transform: scale(0) rotate(-15deg);
+            }
+
+            50% {
+                opacity: 1;
+                transform: scale(1.2) rotate(0deg);
+            }
+
+            70% {
+                transform: scale(0.9);
+            }
+
+            80% {
+                transform: scale(1);
+                opacity: 1;
+            }
+
+            100% {
+                opacity: 0;
+                transform: scale(1.5);
+            }
+        }
+
+        .anim-1.animate::before {
+            content: '';
+            position: absolute;
+            width: 600px;
+            height: 600px;
+            background-image: radial-gradient(circle, #000 1px, transparent 1.5px);
+            background-size: 20px 20px;
+            opacity: 0.2;
+            animation: fadeOut 1.5s forwards;
+            pointer-events: none;
+        }
+
+        @keyframes fadeOut {
+            to {
+                opacity: 0;
+            }
+        }
+
+        /* --- 2. Neon Pulse --- */
+        .anim-2 .zhenbang {
+            color: #fff;
+            text-shadow: 0 0 5px #fff, 0 0 10px #fff, 0 0 20px #0ff, 0 0 30px #0ff, 0 0 40px #0ff;
+        }
+
+        .anim-2.animate .zhenbang {
+            animation: neonFlicker 2.5s forwards;
+        }
+
+        @keyframes neonFlicker {
+            0% {
+                opacity: 0;
+            }
+
+            10% {
+                opacity: 1;
+            }
+
+            15% {
+                opacity: 0.2;
+            }
+
+            20% {
+                opacity: 1;
+            }
+
+            25% {
+                opacity: 0.2;
+            }
+
+            30% {
+                opacity: 1;
+            }
+
+            70% {
+                opacity: 1;
+                text-shadow: 0 0 10px #fff, 0 0 20px #f0f, 0 0 40px #f0f, 0 0 60px #f0f;
+            }
+
+            100% {
+                opacity: 0;
+            }
+        }
+
+        /* --- 3. Traditional Stamp --- */
+        .anim-3 .zhenbang {
+            font-family: 'Kaiti', 'STKaiti', serif;
+            color: #d63031;
+            border: 8px solid #d63031;
+            padding: 10px 30px;
+            border-radius: 8px;
+            background: radial-gradient(#fff, #f8d7da);
+            box-shadow: 0 0 0 4px #fff inset;
+        }
+
+        .anim-3.animate .zhenbang {
+            animation: stampImpact 1.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        }
+
+        @keyframes stampImpact {
+            0% {
+                opacity: 0;
+                transform: scale(3);
+            }
+
+            20% {
+                opacity: 1;
+                transform: scale(1);
+            }
+
+            30% {
+                transform: scale(1.05) rotate(2deg);
+            }
+
+            40% {
+                transform: scale(1) rotate(0deg);
+            }
+
+            80% {
+                opacity: 1;
+                filter: blur(0);
+            }
+
+            100% {
+                opacity: 0;
+                filter: blur(2px);
+                transform: scale(1.1);
+            }
+        }
+
+        /* --- 4. Confetti Burst (礼花绽放) --- */
+        .anim-4 .zhenbang {
+            color: #ff6b6b;
+            background: linear-gradient(45deg, #ff6b6b, #feca57);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            z-index: 10;
+            /* 文字在彩带上方 */
+            position: relative;
+            /* 启用定位使层级生效 */
+        }
+
+        /* 触发时的文字动画 */
+        .anim-4.animate .zhenbang {
+            animation: floatUp 1.5s ease-out forwards;
+        }
+
+        /* 触发出的彩带/礼花（emoji） */
+        .anim-4.animate::after {
+            content: '🎉 ✨ 🎊';
+            position: absolute;
+            font-size: 8rem;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            animation: explode 1.5s ease-out forwards;
+            z-index: 1;
+            /* 彩带在文字下方 */
+        }
+
+        /* 礼花专用：文字上浮效果 */
+        @keyframes floatUp {
+            0% {
+                opacity: 0;
+                transform: translateY(50px) scale(0.5);
+            }
+
+            30% {
+                opacity: 1;
+                transform: translateY(-20px) scale(1.2);
+            }
+
+            100% {
+                opacity: 0;
+                transform: translateY(-100px) scale(1.5);
+            }
+        }
+
+        /* 礼花专用：彩带炸开效果 */
+        @keyframes explode {
+            0% {
+                opacity: 0;
+                transform: translate(-50%, -50%) scale(0.5);
+            }
+
+            20% {
+                opacity: 1;
+                transform: translate(-50%, -50%) scale(1.5);
+            }
+
+            100% {
+                opacity: 0;
+                transform: translate(-50%, -50%) scale(2.5);
+            }
+        }
+
+        /* --- 5. Retro 8-Bit (像素) --- */
+        .anim-5 .zhenbang {
+            font-family: 'Courier New', monospace;
+            color: #4cd137;
+            text-shadow: 4px 4px 0 #000;
+            letter-spacing: 4px;
+        }
+
+        .anim-5.animate .zhenbang {
+            animation: pixelUp 1.5s steps(4) forwards;
+        }
+
+        @keyframes pixelUp {
+            0% {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+
+            20% {
+                opacity: 1;
+                transform: translateY(0);
+            }
+
+            40% {
+                opacity: 0;
+            }
+
+            60% {
+                opacity: 1;
+            }
+
+            80% {
+                opacity: 1;
+            }
+
+            100% {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+        }
+
+        /* --- 6. Fluid Splash --- */
+        .anim-6 .zhenbang {
+            color: #00a8ff;
+        }
+
+        .anim-6.animate .zhenbang {
+            animation: jelly 1.5s linear forwards;
+        }
+
+        @keyframes jelly {
+            0% {
+                opacity: 0;
+                transform: scale(0.3, 0.3);
+            }
+
+            30% {
+                opacity: 1;
+                transform: scale(1.25, 0.75);
+            }
+
+            40% {
+                transform: scale(0.75, 1.25);
+            }
+
+            50% {
+                transform: scale(1.15, 0.85);
+            }
+
+            65% {
+                transform: scale(0.95, 1.05);
+            }
+
+            75% {
+                transform: scale(1.05, 0.95);
+            }
+
+            100% {
+                opacity: 0;
+                transform: scale(2, 2);
+            }
+        }
+
+        /* --- 7. Golden Shine --- */
+        .anim-7 .zhenbang {
+            background: linear-gradient(to right, #bf953f, #fcf6ba, #b38728, #fbf5b7, #aa771c);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            background-size: 200% auto;
+        }
+
+        .anim-7.animate .zhenbang {
+            animation: shine 1.5s ease-in-out forwards;
+        }
+
+        @keyframes shine {
+            0% {
+                opacity: 0;
+                background-position: 0% 50%;
+                transform: scale(0.9);
+            }
+
+            30% {
+                opacity: 1;
+                transform: scale(1);
+            }
+
+            70% {
+                opacity: 1;
+                background-position: 100% 50%;
+            }
+
+            100% {
+                opacity: 0;
+                transform: scale(1.1);
+            }
+        }
+
+        /* --- 8. Rocket Launch --- */
+        .anim-8 .zhenbang {
+            color: #e84118;
+        }
+
+        .anim-8.animate .zhenbang {
+            animation: launch 1.5s ease-in forwards;
+        }
+
+        .anim-8.animate .zhenbang::after {
+            content: '🚀';
+            font-size: 3rem;
+            position: absolute;
+            right: -50px;
+            top: -20px;
+        }
+
+        @keyframes launch {
+            0% {
+                opacity: 0;
+                transform: translateY(100px);
+            }
+
+            20% {
+                opacity: 1;
+                transform: translateY(0);
+            }
+
+            80% {
+                opacity: 1;
+                transform: translateY(-20px);
+            }
+
+            100% {
+                opacity: 0;
+                transform: translateY(-300px);
+            }
+        }
+
+        /* --- 9. Glitch Error --- */
+        .anim-9 .zhenbang {
+            color: #fff;
+            font-family: monospace;
+            font-size: 6rem;
+        }
+
+        .anim-9.animate .zhenbang {
+            animation: glitch-anim 1.5s infinite alternate-reverse;
+            opacity: 1;
+        }
+
+        .anim-9.animate .zhenbang::before,
+        .anim-9.animate .zhenbang::after {
+            content: "真棒";
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        .anim-9.animate .zhenbang::before {
+            color: #ff00ff;
+            animation: glitch-anim-1 2s infinite linear alternate-reverse;
+            left: 2px;
+            clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%);
+        }
+
+        .anim-9.animate .zhenbang::after {
+            color: #00ffff;
+            animation: glitch-anim-2 2s infinite linear alternate-reverse;
+            left: -2px;
+            clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%);
+        }
+
+        @keyframes glitch-anim {
+            0% {
+                transform: translate(0)
+            }
+
+            20% {
+                transform: translate(-2px, 2px)
+            }
+
+            40% {
+                transform: translate(-2px, -2px)
+            }
+
+            60% {
+                transform: translate(2px, 2px)
+            }
+
+            80% {
+                transform: translate(2px, -2px)
+            }
+
+            100% {
+                transform: translate(0)
+            }
+        }
+
+        @keyframes glitch-anim-1 {
+            0% {
+                clip-path: inset(20% 0 80% 0);
+            }
+
+            100% {
+                clip-path: inset(30% 0 30% 0);
+            }
+        }
+
+        @keyframes glitch-anim-2 {
+            0% {
+                clip-path: inset(10% 0 60% 0);
+            }
+
+            100% {
+                clip-path: inset(5% 0 80% 0);
+            }
+        }
+
+        /* --- 10. Typewriter --- */
+        .anim-10 .zhenbang {
+            font-family: 'Courier New', monospace;
+            overflow: hidden;
+            white-space: nowrap;
+            border-right: .15em solid orange;
+            width: 0;
+            color: #333;
+            background: #fff;
+            padding: 0 10px;
+            /* legible on bg */
+        }
+
+        .anim-10.animate .zhenbang {
+            opacity: 1;
+            width: 0;
+            animation: typing 1s steps(2, end) forwards, blink-caret .75s step-end infinite;
+        }
+
+        @keyframes typing {
+            from {
+                width: 0
+            }
+
+            to {
+                width: 2.2em
+            }
+        }
+
+        @keyframes blink-caret {
+
+            from,
+            to {
+                border-color: transparent
+            }
+
+            50% {
+                border-color: orange;
+            }
+        }
+
+        /* --- 11. Rubber Band --- */
+        .anim-11 .zhenbang {
+            color: #e056fd;
+        }
+
+        .anim-11.animate .zhenbang {
+            animation: rubberBand 1.5s forwards;
+        }
+
+        @keyframes rubberBand {
+            0% {
+                opacity: 0;
+                transform: scale3d(1, 1, 1);
+            }
+
+            30% {
+                opacity: 1;
+                transform: scale3d(1.25, 0.75, 1);
+            }
+
+            40% {
+                transform: scale3d(0.75, 1.25, 1);
+            }
+
+            50% {
+                transform: scale3d(1.15, 0.85, 1);
+            }
+
+            65% {
+                transform: scale3d(0.95, 1.05, 1);
+            }
+
+            75% {
+                transform: scale3d(1.05, 0.95, 1);
+            }
+
+            100% {
+                opacity: 0;
+                transform: scale3d(1, 1, 1);
+            }
+        }
+
+        /* --- 12. Smoky Reveal --- */
+        .anim-12 .zhenbang {
+            color: transparent;
+            text-shadow: 0 0 10px rgba(255, 255, 255, 0.8);
+        }
+
+        .anim-12.animate .zhenbang {
+            animation: smoky 1.5s forwards;
+        }
+
+        @keyframes smoky {
+            0% {
+                opacity: 0;
+                text-shadow: 0 0 40px rgba(255, 255, 255, 0);
+                transform: translate3d(0, 30px, 0) rotate(10deg);
+            }
+
+            20% {
+                opacity: 1;
+                text-shadow: 0 0 10px rgba(255, 255, 255, 0.8);
+            }
+
+            50% {
+                opacity: 1;
+                text-shadow: 0 0 0 rgba(255, 255, 255, 1);
+                transform: translate3d(0, 0, 0) rotate(0deg);
+                color: #fff;
+            }
+
+            100% {
+                opacity: 0;
+                text-shadow: 0 0 40px rgba(255, 255, 255, 0);
+                transform: translate3d(0, -30px, 0) rotate(-10deg);
+                color: transparent;
+            }
+        }
+
+        /* --- 13. Heartbeat --- */
+        .anim-13 .zhenbang {
+            color: #ff3366;
+        }
+
+        .anim-13.animate .zhenbang {
+            animation: heartBeat 1.5s ease-in-out forwards;
+            opacity: 1;
+        }
+
+        .anim-13.animate .zhenbang::after {
+            content: '❤';
+            display: block;
+            font-size: 2rem;
+            text-align: center;
+            margin-top: -10px;
+        }
+
+        @keyframes heartBeat {
+            0% {
+                transform: scale(1);
+                opacity: 0;
+            }
+
+            14% {
+                transform: scale(1.3);
+                opacity: 1;
+            }
+
+            28% {
+                transform: scale(1);
+            }
+
+            42% {
+                transform: scale(1.3);
+            }
+
+            70% {
+                transform: scale(1);
+                opacity: 1;
+            }
+
+            100% {
+                transform: scale(1);
+                opacity: 0;
+            }
+        }
+
+        /* --- 14. Spotlight --- */
+        .anim-14 .zhenbang {
+            color: #444;
+            font-family: 'Times New Roman', serif;
+        }
+
+        .anim-14.animate .zhenbang {
+            color: #444;
+            opacity: 1;
+            background: linear-gradient(to right, #444 0%, #fff 50%, #444 100%);
+            background-size: 50% 100%;
+            -webkit-background-clip: text;
+            background-clip: text;
+            animation: spotlightAnim 1.5s linear forwards;
+        }
+
+        @keyframes spotlightAnim {
+            0% {
+                background-position: -150% 0;
+                color: rgba(255, 255, 255, 0.1);
+            }
+
+            50% {
+                color: rgba(255, 255, 255, 0.1);
+            }
+
+            100% {
+                background-position: 250% 0;
+                color: rgba(255, 255, 255, 0);
+            }
+        }
+
+        /* --- 15. Bouncing Ball --- */
+        .anim-15 .zhenbang {
+            color: #ff9f43;
+        }
+
+        .anim-15.animate .zhenbang {
+            animation: bounceInDown 1.5s forwards;
+        }
+
+        @keyframes bounceInDown {
+
+            0%,
+            60%,
+            75%,
+            90%,
+            100% {
+                animation-timing-function: cubic-bezier(0.215, 0.61, 0.355, 1);
+            }
+
+            0% {
+                opacity: 0;
+                transform: translate3d(0, -1000px, 0);
+            }
+
+            60% {
+                opacity: 1;
+                transform: translate3d(0, 25px, 0);
+            }
+
+            75% {
+                transform: translate3d(0, -10px, 0);
+            }
+
+            90% {
+                transform: translate3d(0, 5px, 0);
+            }
+
+            100% {
+                opacity: 0;
+                transform: translate3d(0, 0, 0);
+            }
+        }
+
+        /* --- 16. 3D Spin --- */
+        .anim-16 {
+            perspective: 500px;
+        }
+
+        .anim-16 .zhenbang {
+            color: #5f27cd;
+            transform-style: preserve-3d;
+        }
+
+        .anim-16.animate .zhenbang {
+            animation: spin3D 1.5s forwards;
+        }
+
+        @keyframes spin3D {
+            0% {
+                opacity: 0;
+                transform: rotateY(90deg);
+            }
+
+            30% {
+                opacity: 1;
+                transform: rotateY(-20deg);
+            }
+
+            60% {
+                transform: rotateY(10deg);
+            }
+
+            80% {
+                opacity: 1;
+                transform: rotateY(0deg);
+            }
+
+            100% {
+                opacity: 0;
+                transform: translateY(-50px);
+            }
+        }
+
+        .back-btn {
+            text-decoration: none;
+            color: var(--text-secondary);
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-weight: bold;
+        }
+
+        .back-btn:hover {
+            color: var(--accent-color);
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="zhenbang-overlay">
+        <div class="stage-box">
+            <div class="zhenbang">真棒!</div>
+        </div>
+    </div>
+
+    <div class="doing-container">
+        <header class="cornell-header">
+            <div class="cornell-title-group">
+                <h1>Write Doing</h1>
+                <p class="cornell-date" id="current-date">Fetching date...</p>
+            </div>
+            <div>
+                <a href="index.html" class="back-btn">⬅ 返回首页</a>
+            </div>
+        </header>
+
+        <div class="cornell-body">
+            <!-- Left: Context/Cues -->
+            <aside class="cornell-left">
+                <!-- Navigation / Views -->
+                <div class="cue-card">
+                    <button class="tag-btn active" id="btn-all-tasks"
+                        style="width:100%; text-align:center; font-weight:bold; padding:8px;"
+                        onclick="showAllTasks()">📋 全部任务 (All)</button>
+                </div>
+
+                <div class="cue-card">
+                    <div class="cue-title">上下文 (Context)</div>
+                    <div class="tag-container" id="context-tags">
+                        <button class="tag-btn" onclick="toggleTag(this)">🔥 紧急</button>
+                        <button class="tag-btn" onclick="toggleTag(this)">🧠 深度工作</button>
+                        <button class="tag-btn" onclick="toggleTag(this)">🏃 琐事</button>
+                        <button class="tag-btn" onclick="toggleTag(this)">🏠 家庭</button>
+                    </div>
+                </div>
+
+                <!-- Removed Time Blocks as per feedback for smoother experience -->
+
+                <div class="cue-card"
+                    style="flex:1; display:flex; flex-direction:column; background: rgba(255,255,255,0.5);">
+                    <div class="cue-title">备注 (Notes)</div>
+                    <textarea
+                        style="width:100%; flex:1; border:none; background:transparent; resize:none; outline:none; font-size:0.9rem;"
+                        placeholder="在此处记录灵感..."></textarea>
+                </div>
+            </aside>
+
+            <!-- Right: Task List -->
+            <main class="cornell-right">
+                <div class="todo-list" id="todo-list">
+                    <!-- Tasks will be injected by JS -->
+                </div>
+
+                <div class="add-task-bar">
+                    <div class="input-row">
+                        <input type="text" class="task-input" id="new-task-input" placeholder="添加新任务... (按 Enter 保存)">
+                        <button class="btn-add" onclick="addTask()">+</button>
+                    </div>
+                    <div class="options-row">
+                        <span>优先级:</span>
+                        <div class="priority-selector">
+                            <label class="p-radio"><input type="radio" name="priority" value="normal" checked> <span
+                                    class="p-dot" style="background:var(--accent-color)"></span> 普通</label>
+                            <label class="p-radio"><input type="radio" name="priority" value="urgent"> <span
+                                    class="p-dot" style="background:var(--danger-color)"></span> 紧急</label>
+                            <label class="p-radio"><input type="radio" name="priority" value="deep"> <span class="p-dot"
+                                    style="background:var(--purple-color)"></span> 深度</label>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+
+        <footer class="cornell-footer">
+            <div class="progress-section">
+                <div
+                    style="display:flex; justify-content:space-between; margin-bottom:5px; font-size:0.85rem; color:#666;">
+                    <span>今日进度</span>
+                    <span id="progress-text">0/3</span>
+                </div>
+                <div class="progress-bar-bg">
+                    <div class="progress-fill" id="progress-fill"></div>
+                </div>
+            </div>
+            <div>
+                <input type="text" class="reflection-input" placeholder="每日反思/小确幸: 今天最棒的一件事是...">
+            </div>
+        </footer>
+    </div>
+
+    <script src="config/env.js"></script>
+    <script>
+        // Mock Data for Prototype
+        // In real version, this will load from localStorage
+        let tasks = [
+            { id: 1, text: "完成日记本 ImgURL V3 迁移验证", priority: "urgent", completed: false, tags: ["紧急"], remark: "" },
+            { id: 2, text: "设计 \"真棒\" 动画效果页面", priority: "deep", completed: false, tags: ["深度工作"], remark: "" },
+            { id: 3, text: "购买本周的生活用品", priority: "normal", completed: false, tags: ["琐事"], remark: "" }
+        ];
+
+        // Active Filter
+        let activeFilter = null;
+
+        // 1. Date
+        const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+        document.getElementById('current-date').textContent = new Date().toLocaleDateString('zh-CN', options);
+
+        // 2. Add Task
+        const input = document.getElementById('new-task-input');
+        input.addEventListener('keypress', function (e) {
+            if (e.key === 'Enter') addTask();
+        });
+
+        function addTask() {
+            const text = input.value.trim();
+            if (!text) return;
+
+            // Default settings
+            let priorityVal = document.querySelector('input[name="priority"]:checked').value;
+            let initialTags = [];
+
+            // Context-aware logic: If there is an active filter, apply it to the new task
+            if (activeFilter) {
+                if (activeFilter === '紧急') {
+                    // If filter is Urgent, force priority to Urgent
+                    priorityVal = 'urgent';
+                    // Tag is optional if we rely solely on priority, but let's add it for consistency
+                    initialTags.push('紧急');
+                } else if (activeFilter === '深度工作') {
+                    priorityVal = 'deep';
+                    initialTags.push('深度工作');
+                } else {
+                    // For other tags like '家庭', '琐事', or Time Blocks '上午' etc.
+                    initialTags.push(activeFilter);
+                }
+            }
+
+            // Create new task object
+            const newTask = {
+                id: Date.now(),
+                text: text,
+                priority: priorityVal,
+                completed: false,
+                tags: initialTags,
+                remark: "" // Init remark
+            };
+
+            tasks.push(newTask);
+
+            // Re-render
+            renderTasks();
+
+            input.value = '';
+
+            // Scroll to bottom
+            const list = document.getElementById('todo-list');
+            list.scrollTop = list.scrollHeight;
+        }
+
+        // 3. Render Tasks with Filtering
+        function renderTasks() {
+            const list = document.getElementById('todo-list');
+            list.innerHTML = '';
+
+            // Filter logic...
+            let filtered = tasks;
+            if (activeFilter) {
+                filtered = tasks.filter(t => {
+                    if (activeFilter === '紧急' && t.priority === 'urgent') return true;
+                    if (activeFilter === '深度工作' && t.priority === 'deep') return true;
+                    if (t.tags && t.tags.includes(activeFilter)) return true;
+                    return false;
+                });
+            }
+
+            if (filtered.length === 0) {
+                list.innerHTML = `<div style="text-align:center; color:#ccc; margin-top:30px;">
+                    ${activeFilter ? '该分类下暂无任务' : '暂无任务，开始新的一天吧！'}
+                 </div>`;
+            }
+
+            filtered.forEach(task => {
+                const div = document.createElement('div');
+                div.className = `todo-item priority-${task.priority} ${task.completed ? 'completed' : ''}`;
+                div.innerHTML = `
+                    <div class="todo-checkbox-wrapper">
+                        <input type="checkbox" class="todo-checkbox" onchange="toggleTask(${task.id}, this)" ${task.completed ? 'checked' : ''}>
+                    </div>
+                    <div style="flex:1">
+                        <span class="todo-text">${task.text}</span>
+                        ${task.tags && task.tags.length ? `<span class="todo-meta">#${task.tags.join(' #')}</span>` : ''}
+                    </div>
+                    <input type="text" class="todo-remark" placeholder="备注..." value="${task.remark || ''}" onchange="updateRemark(${task.id}, this.value)">
+                 `;
+                list.appendChild(div);
+            });
+
+            updateProgress();
+        }
+
+        function updateRemark(id, value) {
+            const task = tasks.find(t => t.id === id);
+            if (task) {
+                task.remark = value;
+            }
+        }
+
+        // 4. Toggle Task & Animation
+        function toggleTask(id, checkbox) {
+            const task = tasks.find(t => t.id === id);
+            if (task) {
+                task.completed = checkbox.checked;
+
+                // Visual update (re-render to keep order/filter or just update class? Re-render is safer for state)
+                // specific item update for animation smoothness
+                const item = checkbox.closest('.todo-item');
+                if (checkbox.checked) {
+                    item.classList.add('completed');
+                    triggerZhenBang();
+                } else {
+                    item.classList.remove('completed');
+                }
+                updateProgress();
+            }
+        }
+
+        // 5. Toggle Tag / Filter
+        function toggleTag(btn) {
+            // Check if already active
+            const isActive = btn.classList.contains('active');
+
+            // Reset all tags (including "All Tasks" button visually if needed, though we handle it separately)
+            document.querySelectorAll('.tag-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById('btn-all-tasks').classList.remove('active');
+
+            if (isActive) {
+                // Deactivate if clicked again -> Show All implicitly
+                showAllTasks();
+            } else {
+                // Activate clicked tag
+                btn.classList.add('active');
+                // Extract text (remove emoji)
+                const text = btn.innerText;
+                // Simple regex to get last word "🔥 紧急" -> "紧急"
+                const parts = text.split(' ');
+                activeFilter = parts.length > 1 ? parts[1] : parts[0];
+                renderTasks();
+            }
+        }
+
+        function showAllTasks() {
+            activeFilter = null;
+            // Reset UI
+            document.querySelectorAll('.tag-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById('btn-all-tasks').classList.add('active');
+            renderTasks();
+        }
+
+        function updateProgress() {
+            const total = tasks.length;
+            const checked = tasks.filter(t => t.completed).length;
+            const percent = total === 0 ? 0 : (checked / total) * 100;
+
+            document.getElementById('progress-fill').style.width = percent + '%';
+            document.getElementById('progress-text').textContent = `${checked}/${total}`;
+        }
+
+        // 6. Trigger Animation (Randomized)
+        // Array of 16 designs with individual durations (in ms)
+        const anims = [
+            { id: 1, dark: false, dur: 1600 },   // Comic Pop
+            { id: 2, dark: true, dur: 2600 },    // Neon Pulse (user preferred longer)
+            { id: 3, dark: false, dur: 1600 },   // Stamp
+            { id: 4, dark: false, dur: 1600 },   // Confetti
+            { id: 5, dark: false, dur: 1600 },   // Retro 8-Bit
+            { id: 6, dark: false, dur: 1600 },   // Fluid Splash
+            { id: 7, dark: false, dur: 1600 },   // Golden Shine
+            { id: 8, dark: false, dur: 1600 },   // Rocket Launch
+            { id: 9, dark: true, dur: 1600 },    // Glitch
+            { id: 10, dark: false, dur: 3500 },  // Typewriter (user preferred longer)
+            { id: 11, dark: false, dur: 1600 },  // Rubber Band
+            { id: 12, dark: true, dur: 1600 },   // Smoky
+            { id: 13, dark: false, dur: 1600 },  // Heartbeat
+            { id: 14, dark: true, dur: 1600 },   // Spotlight
+            { id: 15, dark: false, dur: 1600 },  // Bouncing Ball
+            { id: 16, dark: false, dur: 1600 }   // 3D Spin
+        ];
+
+        function triggerZhenBang() {
+            const overlay = document.getElementById('zhenbang-overlay');
+            const box = overlay.querySelector('.stage-box');
+
+            // Randomly select one
+            const choice = anims[Math.floor(Math.random() * anims.length)];
+            const animClass = 'anim-' + choice.id;
+
+            // Set styles
+            overlay.className = ''; // reset
+            if (choice.dark) overlay.classList.add('dark-mode');
+
+            // Update box class
+            box.className = 'stage-box ' + animClass; // e.g. "stage-box anim-4"
+
+            // Force Reflow
+            void box.offsetWidth;
+
+            // Trigger Animation
+            box.classList.add('animate');
+
+            // Remove animation class after dynamic timeout based on animation
+            setTimeout(() => {
+                box.classList.remove('animate');
+                overlay.className = ''; // remove dark mode if any
+            }, choice.dur);
+        }
+    </script>
+</body>
+
+</html>

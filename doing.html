@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Write Doing - 智能日记本</title>
+    <link rel="stylesheet" href="css/style.css">
+    <style>
+        :root { --accent-color: #4a90d9; --text-color: #2c3e50; --text-secondary: #7f8c8d; --danger-color: #ff6b6b; --purple-color: #5f27cd; }
+        .doing-container { display: flex; flex-direction: column; height: 100vh; max-width: 1200px; margin: 0 auto; padding: 20px; box-sizing: border-box; }
+        .cornell-header { border-bottom: 2px solid var(--accent-color); padding-bottom: 15px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; }
+        .cornell-title-group h1 { margin: 0; font-size: 2rem; color: var(--text-color); }
+        .cornell-date { color: var(--text-secondary); font-weight: 500; }
+        .cornell-body { display: flex; flex: 1; gap: 20px; overflow: hidden; }
+        .cornell-left { width: 30%; border-right: 1px solid #e0e0e0; padding-right: 20px; display: flex; flex-direction: column; gap: 15px; }
+        .cue-card { background: rgba(255,255,255,0.7); padding: 15px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+        .cue-title { font-weight: bold; color: var(--accent-color); margin-bottom: 8px; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 1px; }
+        .tag-container { display: flex; flex-wrap: wrap; gap: 8px; }
+        .tag-btn { padding: 4px 10px; background: #f0f2f5; border: 1px solid #ccc; border-radius: 12px; font-size: 0.8rem; cursor: pointer; transition: all 0.2s; }
+        .tag-btn:hover { background: #e0e0e0; }
+        .tag-btn.active { background: var(--accent-color); color: white; border-color: var(--accent-color); }
+        .cornell-right { width: 70%; display: flex; flex-direction: column; padding-left: 10px; }
+        .todo-list { flex: 1; overflow-y: auto; padding-right: 10px; }
+        .todo-item { display: flex; align-items: center; background: white; padding: 12px 15px; margin-bottom: 10px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.03); transition: all 0.2s; border-left: 4px solid #ccc; position: relative; }
+        .todo-item:hover { transform: translateY(-2px); box-shadow: 0 4px 8px rgba(0,0,0,0.08); }
+        .todo-item.priority-urgent { border-left-color: var(--danger-color); }
+        .todo-item.priority-deep { border-left-color: var(--purple-color); }
+        .todo-item.priority-normal { border-left-color: var(--accent-color); }
+        .todo-checkbox-wrapper { position: relative; width: 24px; height: 24px; margin-right: 15px; }
+        .todo-checkbox { width: 24px; height: 24px; cursor: pointer; accent-color: var(--accent-color); }
+        .todo-text { flex: 1; font-size: 1.1rem; }
+        .todo-item.completed .todo-text { text-decoration: line-through; color: #999; }
+        .todo-meta { display: block; font-size: 0.8rem; color: #999; margin-top: 4px; }
+        .todo-remark { margin-left: 10px; padding: 5px; border: none; border-bottom: 1px dashed #ccc; background: transparent; font-size: 0.9rem; color: #666; width: 150px; transition: all 0.2s; }
+        .todo-remark:focus { outline: none; border-bottom-color: var(--accent-color); background: #fdfdfd; }
+        .add-task-bar { margin-top: 15px; display: flex; flex-direction: column; gap: 10px; background: white; padding: 15px; border-radius: 8px; box-shadow: 0 -2px 10px rgba(0,0,0,0.05); }
+        .input-row { display: flex; gap: 10px; }
+        .task-input { flex: 1; border: 1px solid #ddd; border-radius: 4px; font-size: 1rem; padding: 10px; outline: none; }
+        .task-input:focus { border-color: var(--accent-color); }
+        .options-row { display: flex; gap: 15px; align-items: center; font-size: 0.9rem; color: #666; }
+        .priority-selector { display: flex; gap: 10px; }
+        .p-radio { display: flex; align-items: center; gap: 4px; cursor: pointer; }
+        .p-dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
+        .btn-add { background: var(--accent-color); color: white; border: none; width: 40px; height: 40px; border-radius: 50%; font-size: 1.5rem; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 0.3s; }
+        .btn-add:hover { background: #357abd; }
+        .cornell-footer { border-top: 2px solid #e0e0e0; padding-top: 15px; margin-top: 20px; background: rgba(255,255,255,0.5); }
+        .progress-section { margin-bottom: 10px; }
+        .progress-bar-bg { width: 100%; height: 8px; background: #e0e0e0; border-radius: 4px; overflow: hidden; }
+        .progress-fill { height: 100%; background: linear-gradient(90deg, #4facfe 0%, #00f2fe 100%); width: 0%; transition: width 0.5s ease; }
+        .reflection-input { width: 100%; border: none; background: transparent; border-bottom: 1px dashed #999; padding: 5px; font-style: italic; color: #666; }
+        .reflection-input:focus { outline: none; border-bottom-style: solid; border-bottom-color: var(--accent-color); }
+        #zhenbang-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 9999; display: flex; align-items: center; justify-content: center; background: transparent; transition: background 0.3s; }
+        #zhenbang-overlay.dark-mode { background: rgba(0,0,0,0.85); }
+        .stage-box { position: relative; display: flex; align-items: center; justify-content: center; }
+        .zhenbang { font-size: 5rem; font-weight: 900; opacity: 0; position: absolute; user-select: none; }
+        .anim-1 .zhenbang { color: #FFD700; -webkit-text-stroke: 2px #000; text-shadow: 4px 4px 0 #000; font-family: 'Arial Black', sans-serif; transform: scale(0); }
+        .anim-1.animate .zhenbang { animation: comicPop 1.5s ease-out forwards; }
+        @keyframes comicPop { 0% { opacity: 0; transform: scale(0) rotate(-15deg); } 50% { opacity: 1; transform: scale(1.2) rotate(0deg); } 70% { transform: scale(0.9); } 80% { transform: scale(1); opacity: 1; } 100% { opacity: 0; transform: scale(1.5); } }
+        .anim-1.animate::before { content: ''; position: absolute; width: 600px; height: 600px; background-image: radial-gradient(circle, #000 1px, transparent 1.5px); background-size: 20px 20px; opacity: 0.2; animation: fadeOut 1.5s forwards; pointer-events: none; }
+        @keyframes fadeOut { to { opacity: 0; } }
+        .anim-2 .zhenbang { color: #fff; text-shadow: 0 0 5px #fff, 0 0 10px #fff, 0 0 20px #0ff, 0 0 30px #0ff, 0 0 40px #0ff; }
+        .anim-2.animate .zhenbang { animation: neonFlicker 2.5s forwards; }
+        @keyframes neonFlicker { 0% { opacity: 0; } 10% { opacity: 1; } 15% { opacity: 0.2; } 20% { opacity: 1; } 25% { opacity: 0.2; } 30% { opacity: 1; } 70% { opacity: 1; text-shadow: 0 0 10px #fff, 0 0 20px #f0f, 0 0 40px #f0f, 0 0 60px #f0f; } 100% { opacity: 0; } }
+        .anim-3 .zhenbang { font-family: 'Kaiti', 'STKaiti', serif; color: #d63031; border: 8px solid #d63031; padding: 10px 30px; border-radius: 8px; background: radial-gradient(#fff, #f8d7da); box-shadow: 0 0 0 4px #fff inset; }
+        .anim-3.animate .zhenbang { animation: stampImpact 1.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
+        @keyframes stampImpact { 0% { opacity: 0; transform: scale(3); } 20% { opacity: 1; transform: scale(1); } 30% { transform: scale(1.05) rotate(2deg); } 40% { transform: scale(1) rotate(0deg); } 80% { opacity: 1; filter: blur(0); } 100% { opacity: 0; filter: blur(2px); transform: scale(1.1); } }
+        .anim-4 .zhenbang { color: #ff6b6b; background: linear-gradient(45deg, #ff6b6b, #feca57); -webkit-background-clip: text; -webkit-text-fill-color: transparent; z-index: 10; position: relative; }
+        .anim-4.animate .zhenbang { animation: floatUp 1.5s ease-out forwards; }
+        .anim-4.animate::after { content: '🎉 ✨ 🎊'; position: absolute; font-size: 8rem; left: 50%; top: 50%; transform: translate(-50%, -50%); animation: explode 1.5s ease-out forwards; z-index: 1; }
+        @keyframes floatUp { 0% { opacity: 0; transform: translateY(50px) scale(0.5); } 30% { opacity: 1; transform: translateY(-20px) scale(1.2); } 100% { opacity: 0; transform: translateY(-100px) scale(1.5); } }
+        @keyframes explode { 0% { opacity: 0; transform: translate(-50%, -50%) scale(0.5); } 20% { opacity: 1; transform: translate(-50%, -50%) scale(1.5); } 100% { opacity: 0; transform: translate(-50%, -50%) scale(2.5); } }
+        .anim-5 .zhenbang { font-family: 'Courier New', monospace; color: #4cd137; text-shadow: 4px 4px 0 #000; letter-spacing: 4px; }
+        .anim-5.animate .zhenbang { animation: pixelUp 1.5s steps(4) forwards; }
+        @keyframes pixelUp { 0% { opacity: 0; transform: translateY(20px); } 20% { opacity: 1; transform: translateY(0); } 40% { opacity: 0; } 60% { opacity: 1; } 80% { opacity: 1; } 100% { opacity: 0; transform: translateY(-20px); } }
+        .anim-6 .zhenbang { color: #00a8ff; }
+        .anim-6.animate .zhenbang { animation: jelly 1.5s linear forwards; }
+        @keyframes jelly { 0% { opacity: 0; transform: scale(0.3, 0.3); } 30% { opacity: 1; transform: scale(1.25, 0.75); } 40% { transform: scale(0.75, 1.25); } 50% { transform: scale(1.15, 0.85); } 65% { transform: scale(0.95, 1.05); } 75% { transform: scale(1.05, 0.95); } 100% { opacity: 0; transform: scale(2, 2); } }
+        .anim-7 .zhenbang { background: linear-gradient(to right, #bf953f, #fcf6ba, #b38728, #fbf5b7, #aa771c); -webkit-background-clip: text; background-clip: text; color: transparent; background-size: 200% auto; }
+        .anim-7.animate .zhenbang { animation: shine 1.5s ease-in-out forwards; }
+        @keyframes shine { 0% { opacity: 0; background-position: 0% 50%; transform: scale(0.9); } 30% { opacity: 1; transform: scale(1); } 70% { opacity: 1; background-position: 100% 50%; } 100% { opacity: 0; transform: scale(1.1); } }
+        .anim-8 .zhenbang { color: #e84118; }
+        .anim-8.animate .zhenbang { animation: launch 1.5s ease-in forwards; }
+        .anim-8.animate .zhenbang::after { content: '🚀'; font-size: 3rem; position: absolute; right: -50px; top: -20px; }
+        @keyframes launch { 0% { opacity: 0; transform: translateY(100px); } 20% { opacity: 1; transform: translateY(0); } 80% { opacity: 1; transform: translateY(-20px); } 100% { opacity: 0; transform: translateY(-300px); } }
+        .anim-9 .zhenbang { color: #fff; font-family: monospace; font-size: 6rem; }
+        .anim-9.animate .zhenbang { animation: glitch-anim 1.5s infinite alternate-reverse; opacity: 1; }
+        .anim-9.animate .zhenbang::before, .anim-9.animate .zhenbang::after { content: "真棒"; position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+        .anim-9.animate .zhenbang::before { color: #ff00ff; animation: glitch-anim-1 2s infinite linear alternate-reverse; left: 2px; clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%); }
+        .anim-9.animate .zhenbang::after { color: #00ffff; animation: glitch-anim-2 2s infinite linear alternate-reverse; left: -2px; clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%); }
+        @keyframes glitch-anim { 0% { transform: translate(0) } 20% { transform: translate(-2px, 2px) } 40% { transform: translate(-2px, -2px) } 60% { transform: translate(2px, 2px) } 80% { transform: translate(2px, -2px) } 100% { transform: translate(0) } }
+        @keyframes glitch-anim-1 { 0% { clip-path: inset(20% 0 80% 0); } 100% { clip-path: inset(30% 0 30% 0); } }
+        @keyframes glitch-anim-2 { 0% { clip-path: inset(10% 0 60% 0); } 100% { clip-path: inset(5% 0 80% 0); } }
+        .anim-10 .zhenbang { font-family: 'Courier New', monospace; overflow: hidden; white-space: nowrap; border-right: .15em solid orange; width: 0; color: #333; background: #fff; padding: 0 10px; }
+        .anim-10.animate .zhenbang { opacity: 1; width: 0; animation: typeWriter 3.5s steps(20) forwards; }
+        @keyframes typeWriter { from { width: 0; } to { width: 100%; } }
+        .anim-11 .zhenbang { color: #00a8ff; }
+        .anim-11.animate .zhenbang { animation: rubberBand 1.5s forwards; }
+        @keyframes rubberBand { 0% { opacity: 0; transform: scale(0.3); } 30% { opacity: 1; transform: scale(1.25); } 40% { transform: scale(0.75); } 50% { transform: scale(0.85); } 65% { transform: scale(0.95); } 75% { transform: scale(0.9); } 100% { opacity: 0; transform: scale(1.1); } }
+        .anim-12 .zhenbang { color: #2d3436; filter: blur(3px); }
+        .anim-12.animate .zhenbang { animation: smoky 1.6s forwards; }
+        .anim-12.animate .zhenbang::before, .anim-12.animate .zhenbang::after { content: "真棒"; position: absolute; top: 0; left: 0; width: 100%; height: 100%; filter: blur(0); opacity: 0.8; }
+        .anim-12.animate .zhenbang::before { animation: smoky-anim-1 1.6s forwards; color: #ff7675; }
+        .anim-12.animate .zhenbang::after { animation: smoky-anim-2 1.6s forwards; color: #74b9ff; }
+        @keyframes smoky { 0% { opacity: 0; transform: translateY(0) scale(1); filter: blur(3px); } 50% { opacity: 0.5; } 100% { opacity: 0; transform: translateY(-80px) scale(1.5); filter: blur(20px); } }
+        @keyframes smoky-anim-1 { 0% { transform: translateY(0) scale(1); opacity: 0.8; } 100% { transform: translateY(-60px) scale(1.5); opacity: 0; } }
+        @keyframes smoky-anim-2 { 0% { transform: translateY(0) scale(1); opacity: 0.8; } 100% { transform: translateY(-60px) scale(1.8); opacity: 0; } }
+        .anim-13 .zhenbang { color: #e84393; }
+        .anim-13.animate .zhenbang { animation: heartbeat 1.5s infinite; opacity: 1; }
+        @keyframes heartbeat { 0% { opacity: 0; transform: scale(0.8); } 15% { opacity: 1; transform: scale(1.1); } 30% { opacity: 1; transform: scale(0.8); } 45% { opacity: 1; transform: scale(1.1); } 60% { opacity: 1; transform: scale(0.8); } 75% { opacity: 1; transform: scale(1.1); } 100% { opacity: 0; transform: scale(1); } }
+        .anim-14 .zhenbang { background: linear-gradient(to right, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.5) 50%, rgba(255,255,255,0.1) 100%); color: transparent; -webkit-background-clip: text; background-clip: text; animation: spotlightAnim 1.5s linear forwards; }
+        @keyframes spotlightAnim { 0% { background-position: -150% 0; color: rgba(255,255,255,0.1); } 50% { color: rgba(255,255,255,0.1); } 100% { background-position: 250% 0; color: rgba(255,255,255,0); } }
+        .anim-15 .zhenbang { color: #ff9f43; }
+        .anim-15.animate .zhenbang { animation: bounceInDown 1.5s forwards; }
+        @keyframes bounceInDown { 0%, 60%, 75%, 90%, 100% { animation-timing-function: cubic-bezier(0.215, 0.61, 0.355, 1); } 0% { opacity: 0; transform: translate3d(0, -1000px, 0); } 60% { opacity: 1; transform: translate3d(0, 25px, 0); } 75% { transform: translate3d(0, -10px, 0); } 90% { transform: translate3d(0, 5px, 0); } 100% { opacity: 0; transform: translate3d(0, 0, 0); } }
+        .anim-16 { perspective: 500px; }
+        .anim-16 .zhenbang { color: #5f27cd; transform-style: preserve-3d; }
+        .anim-16.animate .zhenbang { animation: spin3D 1.5s forwards; }
+        @keyframes spin3D { 0% { opacity: 0; transform: rotateY(90deg); } 30% { opacity: 1; transform: rotateY(-20deg); } 60% { transform: rotateY(10deg); } 80% { opacity: 1; transform: rotateY(0deg); } 100% { opacity: 0; transform: translateY(-50px); } }
+        .back-btn { text-decoration: none; color: var(--text-secondary); display: flex; align-items: center; gap: 5px; font-weight: bold; }
+        .back-btn:hover { color: var(--accent-color); }
+    </style>
+</head>
+<body>
+    <div id="zhenbang-overlay"><div class="stage-box"><div class="zhenbang">真棒!</div></div></div>
+    <div class="doing-container">
+        <header class="cornell-header">
+            <div class="cornell-title-group">
+                <h1>Write Doing</h1>
+                <p class="cornell-date" id="current-date">Fetching date...</p>
+            </div>
+            <div><a href="index.html" class="back-btn">← 返回首页</a></div>
+        </header>
+        <div class="cornell-body">
+            <aside class="cornell-left">
+                <div class="cue-card">
+                    <button class="tag-btn active" id="btn-all-tasks" style="width:100%; text-align:center; font-weight:bold; padding:8px;" onclick="showAllTasks()">📋 全部任务 (All)</button>
+                </div>
+                <div class="cue-card">
+                    <div class="cue-title">上下文 (Context)</div>
+                    <div class="tag-container" id="context-tags">
+                        <button class="tag-btn" onclick="toggleTag(this)">🔥 紧急</button>
+                        <button class="tag-btn" onclick="toggleTag(this)">🧠 深度工作</button>
+                        <button class="tag-btn" onclick="toggleTag(this)">🏃 琐事</button>
+                        <button class="tag-btn" onclick="toggleTag(this)">🏠 家庭</button>
+                    </div>
+                <div class="cue-card" style="flex:1; display:flex; flex-direction:column; background: rgba(255,255,255,0.5);">
+                    <div class="cue-title">备注 (Notes)</div>
+                    <textarea style="width:100%; flex:1; border:none; background:transparent; resize:none; outline:none; font-size:0.9rem;" placeholder="在此处记录灵感..."></textarea>
+                </div>
+            </aside>
+            <main class="cornell-right">
+                <div class="todo-list" id="todo-list"></div>
+                <div class="add-task-bar">
+                    <div class="input-row">
+                        <input type="text" class="task-input" id="new-task-input" placeholder="添加新任务... (按 Enter 保存)">
+                        <button class="btn-add" onclick="addTask()">+</button>
+                    </div>
+                    <div class="options-row">
+                        <span>优先级:</span>
+                        <div class="priority-selector">
+                            <label class="p-radio"><input type="radio" name="priority" value="normal" checked> <span class="p-dot" style="background:var(--accent-color)"></span> 普通</label>
+                            <label class="p-radio"><input type="radio" name="priority" value="urgent"> <span class="p-dot" style="background:var(--danger-color)"></span> 紧急</label>
+                            <label class="p-radio"><input type="radio" name="priority" value="deep"> <span class="p-dot" style="background:var(--purple-color)"></span> 深度</label>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+        <footer class="cornell-footer">
+            <div class="progress-section">
+                <div style="display:flex; justify-content:space-between; margin-bottom:5px; font-size:0.85rem; color:#666;">
+                    <span>今日进度</span>
+                    <span id="progress-text">0/3</span>
+                </div>
+                <div class="progress-bar-bg"><div class="progress-fill" id="progress-fill"></div></div>
+            </div>
+            <div><input type="text" class="reflection-input" placeholder="每日反思/小确幸: 今天最棒的一件事是..."></div>
+        </footer>
+    </div>
+    <script src="config/env.js"></script>
+    <script src="js/doing.js"></script>
+</body>
+</html>
