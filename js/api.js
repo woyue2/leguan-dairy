@@ -726,11 +726,44 @@ class ZhipuAPI {
       }
 
     } catch (error) {
-      if (error instanceof Error) {
-        throw error
+      console.warn('周记JSON解析失败，尝试清洗后重试:', error)
+      try {
+        const cleaned = this.sanitizeAndParse(jsonMatch[0])
+        return {
+          title: cleaned.title || '本周记录',
+          summary: cleaned.summary || content
+        }
+      } catch (cleanError) {
+        console.warn('清洗后解析仍失败，回退到原始内容:', cleanError)
+        return {
+          title: '本周记录',
+          summary: data.choices?.[0]?.message?.content || ''
+        }
       }
-      console.error('解析周记响应失败:', error)
-      throw new Error('解析周记结果失败')
+    }
+  }
+
+  sanitizeAndParse(str) {
+    // 1. 尝试修复未转义的换行符/回车符/制表符 (在双引号内的)
+    // 这是一个简单的启发式修复
+    // 注意：这可能无法处理所有边缘情况，但能覆盖常见的 LLM 输出错误
+    let fixed = str.replace(/("[\s\S]*?")/g, (match) => {
+      // 这里的 match 是被双引号包含的字符串值（包含引号）
+      // 我们只替换值内部的特殊字符
+      return match
+        .replace(/\n/g, "\\n")
+        .replace(/\r/g, "\\r")
+        .replace(/\t/g, "\\t")
+    })
+
+    try {
+      return JSON.parse(fixed)
+    } catch (e) {
+      // 2. 如果第一步失败，尝试移除所有 ASCII 控制字符 (0-31)，除了必需的空白符
+      // 保留换行(\n, \r)和制表(\t)因为它们可能是有意为之的格式（虽然 JSON 中它们应该被转义）
+      // 但在这里我们先尝试移除其他控制字符
+      const noControl = fixed.replace(/[\x00-\x09\x0B-\x0C\x0E-\x1F\x7F]/g, "")
+      return JSON.parse(noControl)
     }
   }
 }
