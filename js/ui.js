@@ -63,7 +63,10 @@ class UIManager {
       btnCancelStructure: document.getElementById('btn-cancel-structure'),
       btnCloseOriginal: document.getElementById('btn-close-original'),
       btnCloseOriginalFooter: document.getElementById('btn-close-original-footer'),
+      btnCloseOriginalFooter: document.getElementById('btn-close-original-footer'),
       settingsApiKey: document.getElementById('settings-api-key'),
+      btnTestApiKey: document.getElementById('btn-test-api-key'),
+      apiKeyTestStatus: document.getElementById('api-key-test-status'),
       toast: document.getElementById('toast'),
       btnInsertImage: document.getElementById('btn-insert-image'),
       btnUploadImage: document.getElementById('btn-upload-image'),
@@ -94,8 +97,7 @@ class UIManager {
       weeklyUploadStatus: document.getElementById('weekly-upload-status'),
       weeklyUploadText: document.getElementById('weekly-upload-text'),
       btnWeeklyRetryUpload: document.getElementById('btn-weekly-retry-upload'),
-      settingsImgurlBaseUrl: document.getElementById('settings-imgurl-base-url'),
-      settingsImgurlUid: document.getElementById('settings-imgurl-uid'),
+      settingsImgurlUploadUrl: document.getElementById('settings-imgurl-upload-url'),
       settingsImgurlToken: document.getElementById('settings-imgurl-token'),
       btnSaveImgurl: document.getElementById('btn-save-imgurl'),
       btnTestImgurl: document.getElementById('btn-test-imgurl'),
@@ -127,6 +129,9 @@ class UIManager {
     }
     if (this.elements.btnApiKey) {
       this.elements.btnApiKey.addEventListener('click', () => this.saveApiKey())
+    }
+    if (this.elements.btnTestApiKey) {
+      this.elements.btnTestApiKey.addEventListener('click', () => this.testApiKey())
     }
     if (this.elements.btnWeekly) {
       this.elements.btnWeekly.addEventListener('click', () => this.showWeeklyList())
@@ -288,25 +293,22 @@ class UIManager {
     this.startImageUpload(this.lastUploadFile, this.lastUploadTarget, true)
   }
 
-  validateUploadConfig() {
+  validateUploadConfig(providedConfig = null) {
     const storage = new DiaryStorage()
-    const config = storage.getImgURLConfig()
-    const baseUrl = (config.base_url || '').trim()
+    const config = providedConfig || storage.getImgURLConfig()
+    const uploadUrl = (config.upload_url || '').trim()
     const token = (config.token || '').trim()
-    
-    if (!baseUrl || !token) {
-      return { valid: false, message: '请填写 ImgURL Base URL 和 Token' }
-    }
 
-    // 移除 V2/V3 自动判断，统一视为 V3 接口，不做 sk- 或 web- 强制校验，相信用户填写的 Token
-    // V3 接口只需要 Token，不需要 UID
+    if (!uploadUrl || !token) {
+      return { valid: false, message: '请填写 ImgURL Upload URL 和 Token' }
+    }
 
     try {
-      new URL(baseUrl)
+      new URL(uploadUrl)
     } catch (error) {
-      return { valid: false, message: '图床 Base URL 格式不正确' }
+      return { valid: false, message: '图床 Upload URL 格式不正确' }
     }
-    return { valid: true, config: { base_url: baseUrl, token } }
+    return { valid: true, config: { upload_url: uploadUrl, token } }
   }
 
   async startImageUpload(file, target, isRetry = false) {
@@ -585,17 +587,17 @@ class UIManager {
     this.elements.settingsApiKey.value = Config.getApiKey()
     const storage = new DiaryStorage()
     const config = storage.getImgURLConfig()
-    if (this.elements.settingsImgurlBaseUrl) {
-      this.elements.settingsImgurlBaseUrl.value = config.base_url || Config.imgurl.baseUrl
-    }
-    if (this.elements.settingsImgurlUid) {
-      this.elements.settingsImgurlUid.value = config.uid || ''
+    if (this.elements.settingsImgurlUploadUrl) {
+      this.elements.settingsImgurlUploadUrl.value = config.upload_url || Config.imgurl.uploadUrl
     }
     if (this.elements.settingsImgurlToken) {
       this.elements.settingsImgurlToken.value = config.token || ''
     }
     if (this.elements.imgurlTestStatus) {
       this.elements.imgurlTestStatus.textContent = ''
+    }
+    if (this.elements.apiKeyTestStatus) {
+      this.elements.apiKeyTestStatus.textContent = ''
     }
     this.showView('settings')
   }
@@ -659,9 +661,9 @@ class UIManager {
 
 
     try {
-      const updates = { 
-        content, 
-        title, 
+      const updates = {
+        content,
+        title,
         images: [...this.currentImages],
         footer_images: [...this.currentFooterImages]
       }
@@ -1092,29 +1094,75 @@ class UIManager {
     }
   }
 
+  async testApiKey() {
+    const key = this.elements.settingsApiKey.value.trim()
+    if (!key) {
+      this.showToast('请输入 API Key')
+      return
+    }
+
+    if (this.elements.apiKeyTestStatus) {
+      this.elements.apiKeyTestStatus.textContent = '测试中...'
+    }
+    if (this.elements.btnTestApiKey) {
+      this.elements.btnTestApiKey.disabled = true
+      this.elements.btnTestApiKey.textContent = '测试中...'
+    }
+
+    try {
+      const api = new ZhipuAPI()
+      const result = await api.validateApiKey(key)
+      if (result.valid) {
+        if (this.elements.apiKeyTestStatus) {
+          this.elements.apiKeyTestStatus.textContent = '连接成功'
+        }
+        this.showToast('连接成功')
+      } else {
+        throw new Error(result.error)
+      }
+    } catch (error) {
+      const message = error?.message || '连接失败'
+      if (this.elements.apiKeyTestStatus) {
+        this.elements.apiKeyTestStatus.textContent = message
+      }
+      this.showToast(message)
+    } finally {
+      if (this.elements.btnTestApiKey) {
+        this.elements.btnTestApiKey.disabled = false
+        this.elements.btnTestApiKey.textContent = '测试连接'
+      }
+    }
+  }
+
   saveImgURLConfig() {
-    const baseUrl = (this.elements.settingsImgurlBaseUrl?.value || '').trim()
+    const uploadUrl = (this.elements.settingsImgurlUploadUrl?.value || '').trim()
     const token = (this.elements.settingsImgurlToken?.value || '').trim()
 
-    if (!baseUrl || !token) {
+    if (!uploadUrl || !token) {
       this.showToast('请完整填写图床配置')
       return
     }
 
     try {
-      new URL(baseUrl)
+      new URL(uploadUrl)
     } catch (error) {
-      this.showToast('图床 Base URL 格式不正确')
+      this.showToast('图床 Upload URL 格式不正确')
       return
     }
 
     const storage = new DiaryStorage()
-    storage.saveImgURLConfig({ base_url: baseUrl, token })
+    storage.saveImgURLConfig({ upload_url: uploadUrl, token })
     this.showToast('保存成功')
   }
 
   async testImgURLConfig() {
-    const validation = this.validateUploadConfig()
+    // 优先读取当前输入框的值，实现“不保存也能测试”
+    const uploadUrl = (this.elements.settingsImgurlUploadUrl?.value || '').trim()
+    const token = (this.elements.settingsImgurlToken?.value || '').trim()
+
+    const currentConfig = { upload_url: uploadUrl, token }
+    const validation = this.validateUploadConfig(currentConfig)
+
     if (!validation.valid) {
       this.showToast(validation.message)
       return

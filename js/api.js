@@ -4,8 +4,8 @@ class ZhipuAPI {
     this.controller = null
   }
 
-  getHeaders() {
-    const apiKey = Config.getApiKey()
+  getHeaders(providedKey = null) {
+    const apiKey = providedKey || Config.getApiKey()
     if (!apiKey) {
       throw new Error('API Key未设置')
     }
@@ -61,7 +61,7 @@ class ZhipuAPI {
 
         if (response.status === 429 && retryCount < 3) {
           const delay = Math.pow(2, retryCount) * 1000
-          console.log(`请求频率限制，等待${delay/1000}秒后重试...`)
+          console.log(`请求频率限制，等待${delay / 1000}秒后重试...`)
           await this.delay(delay)
           return this.analyze(cleanedContent, retryCount + 1)
         }
@@ -251,8 +251,9 @@ class ZhipuAPI {
     }
   }
 
-  async validateApiKey() {
-    if (!Config.hasApiKey()) {
+  async validateApiKey(providedKey = null) {
+    const apiKey = providedKey || Config.getApiKey()
+    if (!apiKey) {
       return { valid: false, error: 'API Key未设置' }
     }
 
@@ -262,7 +263,7 @@ class ZhipuAPI {
 
       const response = await fetch(this.config.baseUrl, {
         method: 'POST',
-        headers: this.getHeaders(),
+        headers: this.getHeaders(apiKey),
         body: JSON.stringify({
           model: this.config.model,
           messages: [{ role: 'user', content: 'hi' }],
@@ -409,13 +410,13 @@ class ZhipuAPI {
 
       // V3 接口规范：Authorization: Bearer <token>
       const token = (config.token || '').trim()
-      
+
       const xhr = new XMLHttpRequest()
-      // 强制使用 V3 路径
-      xhr.open('POST', Config.getImgURLUploadUrl(config.base_url, true))
+      // 直接使用配置的 uploadUrl
+      xhr.open('POST', config.upload_url || Config.imgurl.uploadUrl)
       xhr.responseType = 'json'
 
-      // 设置 Authorization Header
+      // 设置 Authorization Header (V3 规范)
       const headerValue = token.toLowerCase().startsWith('bearer ') ? token : `Bearer ${token}`
       xhr.setRequestHeader('Authorization', headerValue)
 
@@ -468,12 +469,6 @@ class ZhipuAPI {
         if (responseMessage === 'invalid.token') {
           const error = new Error('图床 Token 无效，请到 ImgURL 后台重新生成')
           error.code = 'UNAUTHORIZED'
-          reject(error)
-          return
-        }
-        if (responseMessage === 'invalid.uid') {
-          const error = new Error('图床 UID 无效，请检查配置')
-          error.code = 'UPLOAD_FAILED'
           reject(error)
           return
         }

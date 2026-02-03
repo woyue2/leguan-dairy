@@ -9,7 +9,8 @@ const Config = {
     provider: 'zhipu',
     baseUrl: 'https://open.bigmodel.cn/api/paas/v4/chat/completions',
     model: 'glm-4',
-    timeout: 30000
+    timeout: 30000,
+    defaultKey: '' // 默认智谱AI API Key，可在此处配置或通过 .env 构建注入
   },
 
   storageKeys: {
@@ -33,17 +34,17 @@ const Config = {
   },
 
   imgurl: {
-    baseUrl: 'https://www.imgurl.org',
-    uploadPath: '/api/v2/upload', // 默认为 V2，代码会根据 Token 格式自动调整
+    uploadUrl: 'https://www.imgurl.org/api/v3/upload',
     maxSizeMB: 3,
     maxWidth: 1920,
     quality: 0.8,
     minQuality: 0.5,
-    maxCompressTries: 3
+    maxCompressTries: 3,
+    defaultToken: '' // 默认 ImgURL Token，可在此处配置或通过 .env 构建注入
   },
 
   getApiKey() {
-    return localStorage.getItem(this.storageKeys.apiKey) || ''
+    return localStorage.getItem(this.storageKeys.apiKey) || this.api.defaultKey || ''
   },
 
   setApiKey(key) {
@@ -60,25 +61,6 @@ const Config = {
 
   hasApiKey() {
     return this.getApiKey().length > 0
-  },
-
-  normalizeImgURLBaseUrl(baseUrl) {
-    const input = (baseUrl || this.imgurl.baseUrl || '').trim()
-    if (!input) {
-      return this.imgurl.baseUrl
-    }
-    const uploadPath = this.imgurl.uploadPath.replace(/\/+$/, '')
-    let normalized = input.replace(/\/+$/, '')
-    if (normalized.toLowerCase().endsWith(uploadPath.toLowerCase())) {
-      normalized = normalized.slice(0, -uploadPath.length).replace(/\/+$/, '')
-    }
-    return normalized || this.imgurl.baseUrl
-  },
-
-  getImgURLUploadUrl(baseUrl, isV3 = false) {
-    const normalized = this.normalizeImgURLBaseUrl(baseUrl)
-    const uploadPath = isV3 ? '/api/v3/upload' : '/api/v2/upload'
-    return `${normalized}${uploadPath}`
   },
 
   getDefaultSystemPrompt() {
@@ -142,7 +124,7 @@ const Config = {
 使用"目录树:"作为标题
 目录树格式类似 Linux tree，使用 ├──、└──、│ 表示层级
 仅输出以上三部分内容，不要包含JSON或代码块。`
-},
+  },
 
 
   getWeeklySystemPrompt() {

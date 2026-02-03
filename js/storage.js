@@ -182,16 +182,14 @@ class DiaryStorage {
   getImgURLConfig() {
     const raw = localStorage.getItem(Config.storageKeys.imgurlConfig)
     const fallback = {
-      base_url: Config.imgurl.baseUrl,
-      uid: '',
-      token: ''
+      upload_url: Config.imgurl.uploadUrl,
+      token: Config.imgurl.defaultToken || ''
     }
     if (!raw) return fallback
     try {
       const parsed = JSON.parse(raw)
       return {
-        base_url: Config.normalizeImgURLBaseUrl(parsed.base_url || Config.imgurl.baseUrl),
-        uid: parsed.uid || '',
+        upload_url: parsed.upload_url || parsed.base_url || Config.imgurl.uploadUrl,
         token: parsed.token || ''
       }
     } catch (e) {
@@ -201,8 +199,7 @@ class DiaryStorage {
 
   saveImgURLConfig(config) {
     const payload = {
-      base_url: Config.normalizeImgURLBaseUrl(config.base_url || Config.imgurl.baseUrl),
-      uid: config.uid || '',
+      upload_url: config.upload_url || Config.imgurl.uploadUrl,
       token: config.token || ''
     }
     localStorage.setItem(Config.storageKeys.imgurlConfig, JSON.stringify(payload))
