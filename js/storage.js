@@ -152,28 +152,57 @@ class DiaryStorage {
   }
 
   export() {
-    return JSON.stringify(this.getAll(), null, 2)
+    const data = {
+      version: '2.0',
+      exportDate: new Date().toISOString(),
+      diaries: this.getAll(),
+      weeklies: this.getAllWeekly()
+    }
+    return JSON.stringify(data, null, 2)
   }
 
   import(jsonData) {
     try {
-      const diaries = JSON.parse(jsonData)
-      if (!Array.isArray(diaries)) {
-        throw new Error('数据格式错误')
+      const data = JSON.parse(jsonData)
+      let diaries = []
+      let weeklies = []
+      let count = 0
+
+      // 兼容旧版格式 (直接是数组)
+      if (Array.isArray(data)) {
+        diaries = data
+      } else {
+        // 新版格式
+        diaries = data.diaries || []
+        weeklies = data.weeklies || []
       }
 
-      const existing = this.getAll()
-      const merged = [...diaries, ...existing]
-      const unique = merged.reduce((acc, current) => {
-        const x = acc.find(item => item.id === current.id)
-        if (!x) {
-          return acc.concat([current])
-        }
-        return acc
-      }, [])
+      // 导入日记
+      if (diaries.length > 0) {
+        const existing = this.getAll()
+        const merged = [...diaries, ...existing]
+        const unique = merged.reduce((acc, current) => {
+          const x = acc.find(item => item.id === current.id)
+          if (!x) return acc.concat([current])
+          return acc
+        }, [])
+        this.saveAll(unique)
+        count += (unique.length - existing.length)
+      }
 
-      this.saveAll(unique)
-      return unique.length - existing.length
+      // 导入周记
+      if (weeklies.length > 0) {
+        const existingWeeklies = this.getAllWeekly()
+        const mergedWeeklies = [...weeklies, ...existingWeeklies]
+        const uniqueWeeklies = mergedWeeklies.reduce((acc, current) => {
+          const x = acc.find(item => item.id === current.id)
+          if (!x) return acc.concat([current])
+          return acc
+        }, [])
+        this.saveAllWeekly(uniqueWeeklies)
+      }
+
+      return count
     } catch (e) {
       throw new Error('导入失败: ' + e.message)
     }
