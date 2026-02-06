@@ -42,6 +42,14 @@ class DoingManager {
                 this.tasks = this.getDefaultTasks()
             }
         }
+
+        // 为没有 order 字段的旧任务添加默认值，并按 order 排序
+        this.tasks.forEach((task, index) => {
+            if (task.order === undefined) {
+                task.order = index
+            }
+        })
+        this.tasks.sort((a, b) => a.order - b.order)
     }
 
     async saveTasks() {
@@ -93,6 +101,7 @@ class DoingManager {
         this.initInputListeners()
         this.renderTasks()
         this.updateProgress()
+        this.initDragAndDrop()
     }
 
     initDate() {
@@ -176,8 +185,51 @@ class DoingManager {
         filtered.forEach(task => {
             const div = document.createElement("div")
             div.className = "todo-item priority-" + task.priority + (task.completed ? " completed" : "")
-            const tagsHtml = task.tags && task.tags.length ? "<span class=todo-meta>#" + task.tags.join(" #") + "</span>" : ""
-            div.innerHTML = "<div class=todo-checkbox-wrapper><input type=checkbox class=todo-checkbox onchange=doingManager.toggleTask(" + task.id + ",this)" + (task.completed ? " checked" : "") + "></div><div style=flex:1><span class=todo-text>" + task.text + "</span>" + tagsHtml + "</div><input type=text class=todo-remark placeholder=备注... value=\"" + (task.remark || "") + "\" onchange=doingManager.updateRemark(" + task.id + ",this.value)>"
+            div.setAttribute('data-task-id', task.id)
+
+            // 复选框
+            const checkboxWrapper = document.createElement("div")
+            checkboxWrapper.className = "todo-checkbox-wrapper"
+            const checkbox = document.createElement("input")
+            checkbox.type = "checkbox"
+            checkbox.className = "todo-checkbox"
+            checkbox.checked = task.completed
+            checkbox.onchange = () => this.toggleTask(task.id, checkbox)
+            checkboxWrapper.appendChild(checkbox)
+
+            // 任务文本和标签
+            const textDiv = document.createElement("div")
+            textDiv.style.cssText = "flex:1;min-width:0;"
+            const textSpan = document.createElement("span")
+            textSpan.className = "todo-text"
+            textSpan.textContent = task.text
+            textDiv.appendChild(textSpan)
+
+            if (task.tags && task.tags.length) {
+                const tagsSpan = document.createElement("span")
+                tagsSpan.className = "todo-meta"
+                tagsSpan.textContent = "#" + task.tags.join(" #")
+                textDiv.appendChild(tagsSpan)
+            }
+
+            // 备注输入框
+            const remarkInput = document.createElement("input")
+            remarkInput.type = "text"
+            remarkInput.className = "todo-remark"
+            remarkInput.placeholder = "备注..."
+            remarkInput.value = task.remark || ""
+            remarkInput.onchange = (e) => this.updateRemark(task.id, e.target.value)
+
+            // 删除按钮
+            const deleteBtn = document.createElement("button")
+            deleteBtn.className = "todo-delete-btn"
+            deleteBtn.textContent = "删除"
+            deleteBtn.onclick = () => this.deleteTask(task.id)
+
+            div.appendChild(checkboxWrapper)
+            div.appendChild(textDiv)
+            div.appendChild(remarkInput)
+            div.appendChild(deleteBtn)
             list.appendChild(div)
         })
     }
@@ -205,6 +257,65 @@ class DoingManager {
             task.remark = value
             await this.saveTasks()
         }
+    }
+
+    initDragAndDrop() {
+        const list = document.getElementById("todo-list")
+        if (!list) return
+
+        this.sortable = Sortable.create(list, {
+            animation: 150,
+            ghostClass: 'todo-item-ghost',
+            dragClass: 'todo-item-dragging',
+            onEnd: async (evt) => {
+                await this.handleReorder(evt.oldIndex, evt.newIndex)
+            }
+        })
+    }
+
+    async handleReorder(oldIndex, newIndex) {
+        // 如果是过滤模式，提示用户
+        if (this.activeFilter) {
+            this.renderTasks()  // 重置回原位置
+            alert('请在"全部任务"模式下调整顺序')
+            return
+        }
+
+        // 重新排序数组
+        const movedTask = this.tasks.splice(oldIndex, 1)[0]
+        this.tasks.splice(newIndex, 0, movedTask)
+
+        // 更新order字段
+        this.tasks.forEach((task, index) => {
+            task.order = index
+        })
+
+        // 保存并重新渲染
+        await this.saveTasks()
+        this.renderTasks()
+    }
+
+    async deleteTask(id) {
+        if (!confirm('确定要删除这个任务吗？')) {
+            return
+        }
+
+        const taskIndex = this.tasks.findIndex(t => t.id === id)
+        if (taskIndex === -1) return
+
+        // 添加删除动画
+        const taskElement = document.querySelector(`.todo-item[data-task-id="${id}"]`)
+        if (taskElement) {
+            taskElement.classList.add('deleting')
+        }
+
+        // 等待动画完成后删除
+        setTimeout(async () => {
+            this.tasks.splice(taskIndex, 1)
+            await this.saveTasks()
+            this.renderTasks()
+            this.updateProgress()
+        }, 300)
     }
 
     toggleTag(btn) {
@@ -303,3 +414,4 @@ function toggleTask(id, checkbox) { doingManager?.toggleTask(id, checkbox) }
 function toggleTag(btn) { doingManager?.toggleTag(btn) }
 function showAllTasks() { doingManager?.showAllTasks() }
 function updateRemark(id, value) { doingManager?.updateRemark(id, value) }
+function deleteTask(id) { doingManager?.deleteTask(id) }

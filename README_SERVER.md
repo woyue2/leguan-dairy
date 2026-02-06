@@ -229,7 +229,7 @@ crontab -e
 # 重新构建
 docker build -t diary-app:latest .
 
-# 重启容器（数据会保留）
+# 重启容器（数据会保留） #数据才会被更新
 docker stop diary-app
 docker rm diary-app
 docker run -d --name diary-app -p 3000:3000 \

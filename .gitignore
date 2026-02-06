@@ -1,28 +1,103 @@
+# ====================
 # Dependencies
+# ====================
 node_modules/
+package-lock.json
 
+# ====================
 # Build outputs
+# ====================
 *.tar
 diary-app.tar
+*.tar.gz
 
+# ====================
 # OS files
+# ====================
 .DS_Store
 Thumbs.db
+desktop.ini
 
+# ====================
 # Editor/IDE
+# ====================
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
+.opencode/
+.trae/
 
+# ====================
 # Logs
+# ====================
 *.log
 npm-debug.log*
+部署记录.log
 
-# Docker
-.dockerignore
-
-# OS
+# ====================
+# Environment & Secrets
+# ====================
 .env
 .env.local
+.env.*.local
+
+# ====================
+# Test files
+# ====================
+test_*.html
+test_*.js
+*_test.html
+
+# ====================
+# Temporary files
+# ====================
+*.tmp
+*.temp
+rebase-todo.txt
+rewrite-msg.ps1
+do-rebase.ps1
+*.bak
+
+# ====================
+# Docker
+# ====================
+.dockerignore
+
+# ====================
+# Development directories
+# ====================
+plan/
+history/
+deploy/
+openspec/
+
+# ====================
+# Large / Generated files
+# ====================
+root@*
+*.img
+*.iso
+
+# ====================
+# Old / Backup files
+# ====================
+*_old.*
+*_backup.*
+*_v1.*
+*_v2.*
+new_doing.html
+
+# ====================
+# Documentation (keep important ones)
+# ====================
+# Keep these:
+# !README.md
+# !QUICKSTART.md
+# !DEPLOYMENT_GUIDE.md
+# !SERVER_STORAGE_GUIDE.md
+
+# Ignore draft docs:
+*_DRAFT.md
+*_DRAFT.*
