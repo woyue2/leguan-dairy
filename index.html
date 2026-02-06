@@ -16,6 +16,7 @@
     <header class="header">
       <h1>智能日记本</h1>
       <div class="status-bar">
+        <span id="storage-status" class="storage-status" style="margin-right: 15px; cursor: pointer; font-size: 0.85rem; color: var(--text-secondary);">初始化中...</span>
         <span id="status-online" class="status-online">在线</span>
         <span id="status-queue" class="status-queue" style="display: none;">
           队列: <span id="status-count">0</span>
@@ -344,7 +345,10 @@
   <input type="file" id="image-upload-input" accept="image/*" class="hidden">
 
   <script src="config/env.js"></script>
-  <script src="js/storage.js"></script>
+  <!-- 服务器端存储 -->
+  <script src="js/storage-server.js"></script>
+  <!-- 本地存储（备用） -->
+  <!-- <script src="js/storage.js"></script> -->
   <script src="js/api.js"></script>
   <script src="js/offline.js"></script>
   <script src="js/ui.js"></script>

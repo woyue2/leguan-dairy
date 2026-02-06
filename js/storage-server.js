@@ -1,163 +1,127 @@
-// File System API Storage Manager
-class FileSystemStorage {
+// 服务器端存储 - 使用 API 保存数据到容器
+
+class ServerStorage {
   constructor() {
-    this.dbName = 'DiaryAppDB'
-    this.dbVersion = 1
-    this.handleStoreName = 'fileHandles'
-    this.diaryHandle = null
-    this.weeklyHandle = null
-    this.isSupported = 'showSaveFilePicker' in window
-    this.storageMode = localStorage.getItem('diary_storage_mode') || 'auto' // 'auto', 'filesystem', 'localStorage'
+    this.apiBase = '/api';
+    this.useServer = true;
   }
 
-  async initDB() {
-    return new Promise((resolve, reject) => {
-      const request = indexedDB.open(this.dbName, this.dbVersion)
-
-      request.onerror = () => reject(request.error)
-      request.onsuccess = () => resolve(request.result)
-
-      request.onupgradeneeded = (event) => {
-        const db = event.target.result
-        if (!db.objectStoreNames.contains(this.handleStoreName)) {
-          db.createObjectStore(this.handleStoreName)
+  async request(endpoint, method = 'GET', data = null) {
+    try {
+      const options = {
+        method,
+        headers: {
+          'Content-Type': 'application/json'
         }
-      }
-    })
-  }
+      };
 
-  async saveHandle(key, handle) {
-    const db = await this.initDB()
-    const tx = db.transaction(this.handleStoreName, 'readwrite')
-    const store = tx.objectStore(this.handleStoreName)
-    await store.put({ key, handle }, key)
-  }
-
-  async getHandle(key) {
-    const db = await this.initDB()
-    const tx = db.transaction(this.handleStoreName, 'readonly')
-    const store = tx.objectStore(this.handleStoreName)
-    const result = await store.get(key)
-    return result ? result.handle : null
-  }
-
-  async getFileHandle(suggestedName, isCreate = false) {
-    if (!this.isSupported) return null
-
-    try {
-      // Try to get from IndexedDB first
-      let handle = await this.getHandle(suggestedName)
-
-      if (!handle && isCreate) {
-        // Show picker to create/select file
-        handle = await window.showSaveFilePicker({
-          suggestedName,
-          types: [{
-            description: 'JSON文件',
-            accept: { 'application/json': ['.json'] }
-          }]
-        })
-        await this.saveHandle(suggestedName, handle)
+      if (data) {
+        options.body = JSON.stringify(data);
       }
 
-      // Verify handle still exists
-      if (handle) {
-        try {
-          const permission = await handle.queryPermission({ mode: 'readwrite' })
-          if (permission === 'granted') {
-            return handle
-          }
+      const response = await fetch(this.apiBase + endpoint, options);
 
-          const request = await handle.requestPermission({ mode: 'readwrite' })
-          if (request === 'granted') {
-            return handle
-          }
-        } catch (e) {
-          // Handle might be invalid, remove from DB
-          console.warn('文件句柄失效:', e)
-          const db = await this.initDB()
-          const tx = db.transaction(this.handleStoreName, 'readwrite')
-          await tx.objectStore(this.handleStoreName).delete(suggestedName)
-          return null
-        }
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
 
-      return null
-    } catch (e) {
-      console.error('获取文件句柄失败:', e)
-      return null
+      return await response.json();
+    } catch (error) {
+      console.error(`API request failed: ${endpoint}`, error);
+      throw error;
     }
   }
 
-  async readJSON(handle) {
-    if (!handle) return null
+  async getAll() {
     try {
-      const file = await handle.getFile()
-      const text = await file.text()
-      return JSON.parse(text)
-    } catch (e) {
-      console.error('读取文件失败:', e)
-      return null
+      const result = await this.request('/diaries');
+      return result || [];
+    } catch (error) {
+      console.error('Failed to get diaries:', error);
+      // 降级到 localStorage
+      const local = localStorage.getItem(Config.storageKeys.diaries);
+      return local ? JSON.parse(local) : [];
     }
   }
 
-  async writeJSON(handle, data) {
-    if (!handle) return false
+  async saveAll(diaries) {
     try {
-      const writable = await handle.createWritable()
-      await writable.write(JSON.stringify(data, null, 2))
-      await writable.close()
-      return true
-    } catch (e) {
-      console.error('写入文件失败:', e)
-      return false
+      await this.request('/diaries', 'POST', diaries);
+      // 同时备份到 localStorage
+      localStorage.setItem(Config.storageKeys.diaries, JSON.stringify(diaries));
+    } catch (error) {
+      console.error('Failed to save diaries:', error);
+      throw new Error('保存失败，请检查网络连接');
     }
   }
 
-  getFileName(handle) {
-    return handle ? handle.name : null
+  async getAllWeekly() {
+    try {
+      const result = await this.request('/weeklies');
+      return result || [];
+    } catch (error) {
+      console.error('Failed to get weeklies:', error);
+      const local = localStorage.getItem(Config.storageKeys.weekly);
+      return local ? JSON.parse(local) : [];
+    }
+  }
+
+  async saveAllWeekly(weeklies) {
+    try {
+      await this.request('/weeklies', 'POST', weeklies);
+      localStorage.setItem(Config.storageKeys.weekly, JSON.stringify(weeklies));
+    } catch (error) {
+      console.error('Failed to save weeklies:', error);
+      throw new Error('保存失败，请检查网络连接');
+    }
+  }
+
+  async export() {
+    try {
+      const result = await this.request('/export');
+      return JSON.stringify(result, null, 2);
+    } catch (error) {
+      console.error('Failed to export:', error);
+      throw new Error('导出失败');
+    }
+  }
+
+  async import(jsonData) {
+    try {
+      const data = JSON.parse(jsonData);
+      const diaries = Array.isArray(data) ? data : (data.diaries || []);
+      const weeklies = data.weeklies || [];
+
+      await this.request('/import', 'POST', { diaries, weeklies });
+      return diaries.length;
+    } catch (error) {
+      console.error('Failed to import:', error);
+      throw new Error('导入失败');
+    }
   }
 }
 
 class DiaryStorage {
   constructor() {
     this.storageKey = Config.storageKeys.diaries
-    this.fs = new FileSystemStorage()
-    this.useFileSystem = this.fs.isSupported && this.fs.storageMode !== 'localStorage'
+    this.server = new ServerStorage()
+    this.useServer = true // 强制使用服务器存储
     this.init()
   }
 
   async init() {
-    if (this.useFileSystem) {
-      // Try to get file handles from IndexedDB
-      this.fs.diaryHandle = await this.fs.getFileHandle('diary.json')
-      this.fs.weeklyHandle = await this.fs.getFileHandle('weekly.json')
-
-      // If no handle exists, try localStorage as fallback
-      if (!this.fs.diaryHandle) {
-        const localData = localStorage.getItem(this.storageKey)
-        if (!localData) {
-          localStorage.setItem(this.storageKey, JSON.stringify([]))
-        }
-      }
-    } else {
-      if (!localStorage.getItem(this.storageKey)) {
-        localStorage.setItem(this.storageKey, JSON.stringify([]))
-      }
+    // 初始化 localStorage 作为备份
+    if (!localStorage.getItem(this.storageKey)) {
+      localStorage.setItem(this.storageKey, JSON.stringify([]))
     }
 
-    // Notify UI about storage status
+    // 通知 UI
     this.notifyStorageStatus()
   }
 
   notifyStorageStatus() {
-    if (this.useFileSystem && this.fs.diaryHandle) {
-      const fileName = this.fs.getFileName(this.fs.diaryHandle)
-      this.showStorageStatus(`文件: ${fileName}`, 'filesystem')
-    } else if (this.fs.isSupported) {
-      this.showStorageStatus('本地存储 (点击升级到文件)', 'localStorage-upgrade')
-    } else {
-      this.showStorageStatus('本地存储 (浏览器不支持文件API)', 'localStorage')
+    if (this.useServer) {
+      this.showStorageStatus('服务器存储', 'server')
     }
   }
 
@@ -168,46 +132,10 @@ class DiaryStorage {
     window.dispatchEvent(event)
   }
 
-  async enableFileSystem() {
-    if (!this.fs.isSupported) {
-      throw new Error('浏览器不支持 File System API')
-    }
-
-    const handle = await this.fs.getFileHandle('diary.json', true)
-
-    if (handle) {
-      // Migrate data from localStorage to file
-      const localData = localStorage.getItem(this.storageKey)
-      if (localData) {
-        const data = JSON.parse(localData)
-        await this.fs.writeJSON(handle, data)
-      }
-
-      this.fs.diaryHandle = handle
-      this.useFileSystem = true
-      this.fs.storageMode = 'filesystem'
-      localStorage.setItem('diary_storage_mode', 'filesystem')
-      this.notifyStorageStatus()
-
-      return true
-    }
-
-    return false
-  }
+  // ========== 基础 CRUD 方法 ==========
 
   async getAll() {
-    if (this.useFileSystem && this.fs.diaryHandle) {
-      const data = await this.fs.readJSON(this.fs.diaryHandle)
-      return data || []
-    }
-
-    try {
-      const data = localStorage.getItem(this.storageKey)
-      return data ? JSON.parse(data) : []
-    } catch (e) {
-      console.error('读取日记失败:', e)
-      return []
-    }
+    return await this.server.getAll()
   }
 
   async getById(id) {
@@ -238,7 +166,7 @@ class DiaryStorage {
     }
 
     diaries.unshift(newDiary)
-    await this.saveAll(diaries)
+    await this.server.saveAll(diaries)
     return newDiary
   }
 
@@ -256,14 +184,14 @@ class DiaryStorage {
       updatedAt: new Date().toISOString()
     }
 
-    await this.saveAll(diaries)
+    await this.server.saveAll(diaries)
     return diaries[index]
   }
 
   async delete(id) {
     const diaries = await this.getAll()
     const filtered = diaries.filter(d => d.id !== id)
-    await this.saveAll(filtered)
+    await this.server.saveAll(filtered)
   }
 
   async saveAnalysis(id, analysisData) {
@@ -292,34 +220,7 @@ class DiaryStorage {
     return diary ? diary.structured_version : null
   }
 
-  async saveAll(diaries) {
-    if (this.useFileSystem && this.fs.diaryHandle) {
-      const success = await this.fs.writeJSON(this.fs.diaryHandle, diaries)
-      if (!success) {
-        throw new Error('文件保存失败')
-      }
-      return
-    }
-
-    try {
-      localStorage.setItem(this.storageKey, JSON.stringify(diaries))
-    } catch (e) {
-      console.error('保存日记失败:', e)
-      throw new Error('存储空间不足，无法保存')
-    }
-  }
-
-  generateId() {
-    return Date.now().toString(36) + Math.random().toString(36).substr(2)
-  }
-
-  extractTitle(content) {
-    if (!content) return '无标题'
-    const firstLine = content.split('\n')[0].trim()
-    return firstLine.length > 30
-      ? firstLine.substring(0, 30) + '...'
-      : firstLine || '无标题'
-  }
+  // ========== 搜索和统计 ==========
 
   async search(keyword) {
     const diaries = await this.getAll()
@@ -343,68 +244,35 @@ class DiaryStorage {
     }
   }
 
-  clearAll() {
+  async clearAll() {
     if (confirm('确定要删除所有日记吗？此操作不可恢复。')) {
-      localStorage.setItem(this.storageKey, JSON.stringify([]))
+      await this.server.saveAll([])
     }
   }
 
   async export() {
-    const data = {
-      version: '2.0',
-      exportDate: new Date().toISOString(),
-      diaries: await this.getAll(),
-      weeklies: await this.getAllWeekly()
-    }
-    return JSON.stringify(data, null, 2)
+    return await this.server.export()
   }
 
   async import(jsonData) {
-    try {
-      const data = JSON.parse(jsonData)
-      let diaries = []
-      let weeklies = []
-      let count = 0
-
-      // 兼容旧版格式 (直接是数组)
-      if (Array.isArray(data)) {
-        diaries = data
-      } else {
-        // 新版格式
-        diaries = data.diaries || []
-        weeklies = data.weeklies || []
-      }
-
-      // 导入日记
-      if (diaries.length > 0) {
-        const existing = await this.getAll()
-        const merged = [...diaries, ...existing]
-        const unique = merged.reduce((acc, current) => {
-          const x = acc.find(item => item.id === current.id)
-          if (!x) return acc.concat([current])
-          return acc
-        }, [])
-        await this.saveAll(unique)
-        count += (unique.length - existing.length)
-      }
-
-      // 导入周记
-      if (weeklies.length > 0) {
-        const existingWeeklies = await this.getAllWeekly()
-        const mergedWeeklies = [...weeklies, ...existingWeeklies]
-        const uniqueWeeklies = mergedWeeklies.reduce((acc, current) => {
-          const x = acc.find(item => item.id === current.id)
-          if (!x) return acc.concat([current])
-          return acc
-        }, [])
-        await this.saveAllWeekly(uniqueWeeklies)
-      }
-
-      return count
-    } catch (e) {
-      throw new Error('导入失败: ' + e.message)
-    }
+    return await this.server.import(jsonData)
   }
+
+  // ========== 工具方法（同步）==========
+
+  generateId() {
+    return Date.now().toString(36) + Math.random().toString(36).substr(2)
+  }
+
+  extractTitle(content) {
+    if (!content) return '无标题'
+    const firstLine = content.split('\n')[0].trim()
+    return firstLine.length > 30
+      ? firstLine.substring(0, 30) + '...'
+      : firstLine || '无标题'
+  }
+
+  // ========== 图片配置 ==========
 
   getImgURLConfig() {
     const raw = localStorage.getItem(Config.storageKeys.imgurlConfig)
@@ -440,18 +308,7 @@ class DiaryStorage {
   }
 
   async getAllWeekly() {
-    if (this.useFileSystem && this.fs.weeklyHandle) {
-      const data = await this.fs.readJSON(this.fs.weeklyHandle)
-      return data || []
-    }
-
-    try {
-      const data = localStorage.getItem(this.getWeeklyStorageKey())
-      return data ? JSON.parse(data) : []
-    } catch (e) {
-      console.error('读取周记失败:', e)
-      return []
-    }
+    return await this.server.getAllWeekly()
   }
 
   async getWeeklyById(id) {
@@ -479,7 +336,7 @@ class DiaryStorage {
     }
 
     weeklies.unshift(newWeekly)
-    await this.saveAllWeekly(weeklies)
+    await this.server.saveAllWeekly(weeklies)
     return newWeekly
   }
 
@@ -497,37 +354,17 @@ class DiaryStorage {
       updatedAt: new Date().toISOString()
     }
 
-    await this.saveAllWeekly(weeklies)
+    await this.server.saveAllWeekly(weeklies)
     return weeklies[index]
   }
 
   async deleteWeekly(id) {
     const weeklies = await this.getAllWeekly()
     const filtered = weeklies.filter(w => w.id !== id)
-    await this.saveAllWeekly(filtered)
+    await this.server.saveAllWeekly(filtered)
   }
 
-  async saveAllWeekly(weeklies) {
-    if (this.useFileSystem) {
-      // Initialize weekly handle if not exists
-      if (!this.fs.weeklyHandle) {
-        this.fs.weeklyHandle = await this.fs.getFileHandle('weekly.json', true)
-      }
-
-      if (this.fs.weeklyHandle) {
-        const success = await this.fs.writeJSON(this.fs.weeklyHandle, weeklies)
-        if (success) return
-      }
-    }
-
-    try {
-      localStorage.setItem(this.getWeeklyStorageKey(), JSON.stringify(weeklies))
-    } catch (e) {
-      console.error('保存周记失败:', e)
-      throw new Error('存储空间不足，无法保存周记')
-    }
-  }
-
+  // ... 其他周记相关方法保持不变 ...
   async getDiariesForWeek(year, weekNumber) {
     const diaries = await this.getAll()
     const startDate = this.getWeekStartDate(year, weekNumber)

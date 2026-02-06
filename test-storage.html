@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>存储系统测试</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      max-width: 800px;
+      margin: 50px auto;
+      padding: 20px;
+      line-height: 1.6;
+    }
+    .test-section {
+      margin: 20px 0;
+      padding: 15px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+    }
+    .test-section h3 {
+      margin-top: 0;
+      color: #333;
+    }
+    button {
+      background: #4a90d9;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 4px;
+      cursor: pointer;
+      margin: 5px;
+    }
+    button:hover {
+      background: #357abd;
+    }
+    .result {
+      margin: 10px 0;
+      padding: 10px;
+      background: #f5f5f5;
+      border-radius: 4px;
+      font-family: monospace;
+      white-space: pre-wrap;
+      max-height: 300px;
+      overflow-y: auto;
+    }
+    .success { color: green; }
+    .error { color: red; }
+    .info { color: blue; }
+  </style>
+</head>
+<body>
+  <h1>📁 File System API 存储系统测试</h1>
+
+  <div class="test-section">
+    <h3>1. 存储系统信息</h3>
+    <button onclick="testStorageInfo()">检查存储系统</button>
+    <div id="storage-info" class="result"></div>
+  </div>
+
+  <div class="test-section">
+    <h3>2. 创建测试数据</h3>
+    <button onclick="testCreate()">创建测试日记</button>
+    <div id="create-result" class="result"></div>
+  </div>
+
+  <div class="test-section">
+    <h3>3. 读取数据</h3>
+    <button onclick="testRead()">读取所有日记</button>
+    <div id="read-result" class="result"></div>
+  </div>
+
+  <div class="test-section">
+    <h3>4. 更新数据</h3>
+    <button onclick="testUpdate()">更新第一条日记</button>
+    <div id="update-result" class="result"></div>
+  </div>
+
+  <div class="test-section">
+    <h3>5. 删除数据</h3>
+    <button onclick="testDelete()">删除最后一条日记</button>
+    <div id="delete-result" class="result"></div>
+  </div>
+
+  <div class="test-section">
+    <h3>6. 升级到文件存储</h3>
+    <button onclick="testUpgrade()">升级存储模式</button>
+    <div id="upgrade-result" class="result"></div>
+  </div>
+
+  <script src="config/env.js"></script>
+  <script src="js/storage.js"></script>
+  <script>
+    let testStorage = null;
+
+    async function log(elementId, message, type = 'info') {
+      const el = document.getElementById(elementId);
+      const timestamp = new Date().toLocaleTimeString();
+      const prefix = type === 'success' ? '✅' : type === 'error' ? '❌' : 'ℹ️';
+      el.textContent = `${prefix} [${timestamp}] ${message}`;
+      el.className = `result ${type}`;
+    }
+
+    async function testStorageInfo() {
+      try {
+        testStorage = new DiaryStorage();
+        await testStorage.init();
+
+        const info = {
+          isSupported: 'showSaveFilePicker' in window,
+          useFileSystem: testStorage.useFileSystem,
+          hasDiaryHandle: !!testStorage.fs.diaryHandle,
+          diaryFileName: testStorage.fs.diaryHandle ? testStorage.fs.diaryHandle.name : 'N/A',
+          storageMode: testStorage.fs.storageMode
+        };
+
+        log('storage-info', JSON.stringify(info, null, 2), 'success');
+      } catch (error) {
+        log('storage-info', error.message, 'error');
+      }
+    }
+
+    async function testCreate() {
+      try {
+        if (!testStorage) {
+          testStorage = new DiaryStorage();
+          await testStorage.init();
+        }
+
+        const testDiary = {
+          content: `这是测试日记 - ${new Date().toLocaleString()}`,
+          title: '测试日记'
+        };
+
+        const created = await testStorage.create(testDiary);
+        log('create-result', `创建成功！\nID: ${created.id}\n标题: ${created.title}\n内容: ${created.content}`, 'success');
+      } catch (error) {
+        log('create-result', `创建失败: ${error.message}`, 'error');
+      }
+    }
+
+    async function testRead() {
+      try {
+        if (!testStorage) {
+          testStorage = new DiaryStorage();
+          await testStorage.init();
+        }
+
+        const diaries = await testStorage.getAll();
+        const count = diaries.length;
+        const first = diaries[0];
+
+        log('read-result', `找到 ${count} 条日记\n第一条: ${first ? first.title : 'N/A'}`, 'success');
+      } catch (error) {
+        log('read-result', `读取失败: ${error.message}`, 'error');
+      }
+    }
+
+    async function testUpdate() {
+      try {
+        if (!testStorage) {
+          testStorage = new DiaryStorage();
+          await testStorage.init();
+        }
+
+        const diaries = await testStorage.getAll();
+        if (diaries.length === 0) {
+          log('update-result', '没有日记可更新', 'error');
+          return;
+        }
+
+        const first = diaries[0];
+        const updated = await testStorage.update(first.id, {
+          title: `已更新 - ${new Date().toLocaleTimeString()}`
+        });
+
+        log('update-result', `更新成功！\n新标题: ${updated.title}`, 'success');
+      } catch (error) {
+        log('update-result', `更新失败: ${error.message}`, 'error');
+      }
+    }
+
+    async function testDelete() {
+      try {
+        if (!testStorage) {
+          testStorage = new DiaryStorage();
+          await testStorage.init();
+        }
+
+        const diaries = await testStorage.getAll();
+        if (diaries.length === 0) {
+          log('delete-result', '没有日记可删除', 'error');
+          return;
+        }
+
+        const last = diaries[diaries.length - 1];
+        await testStorage.delete(last.id);
+
+        log('delete-result', `删除成功！\n已删除: ${last.title}`, 'success');
+      } catch (error) {
+        log('delete-result', `删除失败: ${error.message}`, 'error');
+      }
+    }
+
+    async function testUpgrade() {
+      try {
+        if (!testStorage) {
+          testStorage = new DiaryStorage();
+          await testStorage.init();
+        }
+
+        if (!testStorage.fs.isSupported) {
+          log('upgrade-result', '浏览器不支持 File System API', 'error');
+          return;
+        }
+
+        if (testStorage.useFileSystem) {
+          log('upgrade-result', '已经是文件存储模式了', 'success');
+          return;
+        }
+
+        const success = await testStorage.enableFileSystem();
+        if (success) {
+          log('upgrade-result', '升级成功！已切换到文件存储模式', 'success');
+        } else {
+          log('upgrade-result', '升级失败', 'error');
+        }
+      } catch (error) {
+        log('upgrade-result', `升级失败: ${error.message}`, 'error');
+      }
+    }
+
+    // Auto-test storage info on load
+    window.addEventListener('DOMContentLoaded', testStorageInfo);
+  </script>
+</body>
+</html>

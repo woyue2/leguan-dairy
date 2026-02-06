@@ -82,27 +82,27 @@ function setupGlobalErrorHandling() {
   })
 }
 
-function showAnalysisModal(diaryId) {
+async function showAnalysisModal(diaryId) {
   const storage = new DiaryStorage()
-  const diary = storage.getById(diaryId)
+  const diary = await storage.getById(diaryId)
 
   if (diary && diary.analysis) {
     ui.showAnalysisModal(diaryId, diary.analysis)
   }
 }
 
-function deleteDiary(id) {
+async function deleteDiary(id) {
   if (confirm('确定要删除这篇日记吗？')) {
     const storage = new DiaryStorage()
-    storage.delete(id)
+    await storage.delete(id)
     ui.renderDiaryList()
     ui.showToast('日记已删除')
   }
 }
 
-function exportData() {
+async function exportData() {
   const storage = new DiaryStorage()
-  const data = storage.export()
+  const data = await storage.export()
 
   const blob = new Blob([data], { type: 'application/json' })
   const url = URL.createObjectURL(blob)
@@ -123,15 +123,15 @@ function importData() {
   input.type = 'file'
   input.accept = '.json'
 
-  input.onchange = (e) => {
+  input.onchange = async (e) => {
     const file = e.target.files[0]
     if (!file) return
 
     const reader = new FileReader()
-    reader.onload = (event) => {
+    reader.onload = async (event) => {
       try {
         const storage = new DiaryStorage()
-        const count = storage.import(event.target.result)
+        const count = await storage.import(event.target.result)
         ui.showToast(`成功导入 ${count} 条日记`)
         ui.renderDiaryList()
       } catch (error) {

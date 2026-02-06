@@ -101,7 +101,8 @@ class UIManager {
       settingsImgurlToken: document.getElementById('settings-imgurl-token'),
       btnSaveImgurl: document.getElementById('btn-save-imgurl'),
       btnTestImgurl: document.getElementById('btn-test-imgurl'),
-      imgurlTestStatus: document.getElementById('imgurl-test-status')
+      imgurlTestStatus: document.getElementById('imgurl-test-status'),
+      storageStatus: document.getElementById('storage-status')
     }
   }
 
@@ -196,6 +197,18 @@ class UIManager {
     if (this.elements.weeklyEditorImages) {
       this.elements.weeklyEditorImages.addEventListener('click', (e) => this.handleRemoveWeeklyImage(e))
     }
+    // Storage status listener
+    window.addEventListener('storageStatusChanged', (e) => {
+      this.updateStorageStatus(e.detail.message, e.detail.type)
+    })
+
+    // Storage status click handler
+    if (this.elements.storageStatus) {
+      this.elements.storageStatus.addEventListener('click', () => {
+        this.handleStorageStatusClick()
+      })
+    }
+
     if (this.elements.weeklyEditorFooterImages) {
       this.elements.weeklyEditorFooterImages.addEventListener('click', (e) => this.handleRemoveWeeklyFooterImage(e))
     }
@@ -294,7 +307,7 @@ class UIManager {
   }
 
   validateUploadConfig(providedConfig = null) {
-    const storage = new DiaryStorage()
+    
     const config = providedConfig || storage.getImgURLConfig()
     const uploadUrl = (config.upload_url || '').trim()
     const token = (config.token || '').trim()
@@ -547,16 +560,16 @@ class UIManager {
     }
   }
 
-  showList() {
+  async showList() {
     this.currentDiaryId = null
-    this.renderDiaryList()
+    await this.renderDiaryList()
     this.showView('list')
   }
 
-  showEditor(diaryId = null) {
+  async showEditor(diaryId = null) {
     if (diaryId) {
-      const storage = new DiaryStorage()
-      const diary = storage.getById(diaryId)
+      
+      const diary = await storage.getById(diaryId)
       if (diary) {
         this.elements.editorTitle.value = diary.title
         const normalized = this.normalizeDiaryContent(diary)
@@ -585,7 +598,7 @@ class UIManager {
 
   showSettings() {
     this.elements.settingsApiKey.value = Config.getApiKey()
-    const storage = new DiaryStorage()
+    
     const config = storage.getImgURLConfig()
     if (this.elements.settingsImgurlUploadUrl) {
       this.elements.settingsImgurlUploadUrl.value = config.upload_url || Config.imgurl.uploadUrl
@@ -602,9 +615,9 @@ class UIManager {
     this.showView('settings')
   }
 
-  renderDiaryList() {
-    const storage = new DiaryStorage()
-    const diaries = storage.getAll()
+  async renderDiaryList() {
+    
+    const diaries = await storage.getAll()
 
     if (diaries.length === 0) {
       this.elements.diaryList.innerHTML = `
@@ -656,7 +669,7 @@ class UIManager {
       return
     }
 
-    const storage = new DiaryStorage()
+    
     let diary
 
 
@@ -669,7 +682,7 @@ class UIManager {
       }
 
       if (this.currentDiaryId) {
-        const existing = storage.getById(this.currentDiaryId)
+        const existing = await storage.getById(this.currentDiaryId)
         if (existing && !existing.original_content) {
           updates.original_content = existing.content || content
         }
@@ -679,9 +692,9 @@ class UIManager {
       }
 
       if (this.currentDiaryId) {
-        diary = storage.update(this.currentDiaryId, updates)
+        diary = await storage.update(this.currentDiaryId, updates)
       } else {
-        diary = storage.create(updates)
+        diary = await storage.create(updates)
         this.currentDiaryId = diary.id
       }
 
@@ -704,8 +717,8 @@ class UIManager {
           this.updateProgress(percent, status, info)
         })
         this.hideAnalysisProgress()
-        storage.saveAnalysis(diary.id, result)
-        this.showAnalysisModal(diary.id, result)
+        await storage.saveAnalysis(diary.id, result)
+        await this.showAnalysisModal(diary.id, result)
       } catch (error) {
         this.hideAnalysisProgress()
         if (error.message.includes('请求频率')) {
@@ -737,7 +750,7 @@ class UIManager {
       return
     }
 
-    const storage = new DiaryStorage()
+    
 
     try {
       const updates = {
@@ -750,20 +763,20 @@ class UIManager {
       }
 
       if (this.currentDiaryId) {
-        const existing = storage.getById(this.currentDiaryId)
+        const existing = await storage.getById(this.currentDiaryId)
         if (existing && !existing.original_content) {
           updates.original_content = existing.content || content
         }
         if (existing?.structured_version) {
           updates.structured_version = content
         }
-        storage.update(this.currentDiaryId, updates)
+        await storage.update(this.currentDiaryId, updates)
       } else {
-        const diary = storage.create(updates)
+        const diary = await storage.create(updates)
         this.currentDiaryId = diary.id
       }
 
-      this.showList()
+      await this.showList()
       this.showToast('已保存')
     } catch (error) {
       this.showToast(error.message)
@@ -818,7 +831,7 @@ class UIManager {
     }
   }
 
-  saveStructuredVersion() {
+  async saveStructuredVersion() {
     if (!this.currentStructuredContent) {
       this.showToast('没有可保存的优化内容')
       return
@@ -829,15 +842,15 @@ class UIManager {
         this.showToast('周记不存在')
         return
       }
-      const storage = new DiaryStorage()
+      
       const updatedSummary = this.currentStructuredContent
       this.currentWeeklyData = {
         ...this.currentWeeklyData,
         summary: updatedSummary
       }
-      const existing = storage.getWeeklyById(this.currentWeeklyData.id)
+      const existing = await storage.getWeeklyById(this.currentWeeklyData.id)
       if (existing) {
-        storage.updateWeekly(this.currentWeeklyData.id, {
+        await storage.updateWeekly(this.currentWeeklyData.id, {
           summary: updatedSummary
         })
       }
@@ -847,12 +860,12 @@ class UIManager {
       return
     }
 
-    const storage = new DiaryStorage()
+    
     const title = this.elements.editorTitle.value.trim() ||
       this.extractTitle(this.currentStructuredContent)
 
     if (this.currentDiaryId) {
-      const existing = storage.getById(this.currentDiaryId)
+      const existing = await storage.getById(this.currentDiaryId)
       const updates = {
         structured_version: this.currentStructuredContent,
         finalVersion: this.currentStructuredContent
@@ -860,9 +873,9 @@ class UIManager {
       if (existing && !existing.original_content) {
         updates.original_content = existing.content || this.elements.editorContent.value.trim()
       }
-      storage.update(this.currentDiaryId, updates)
+      await storage.update(this.currentDiaryId, updates)
     } else {
-      const diary = storage.create({
+      const diary = await storage.create({
         title,
         content: this.elements.editorContent.value.trim(),
         original_content: this.elements.editorContent.value.trim(),
@@ -876,17 +889,17 @@ class UIManager {
     this.elements.editorContent.value = this.currentStructuredContent
     this.updateWordCount()
     this.hideStructureModal()
-    this.renderDiaryList()
+    await this.renderDiaryList()
     this.showToast('结构优化已保存')
   }
 
-  showOriginalModal() {
+  async showOriginalModal() {
     if (!this.currentDiaryId) {
       this.showToast('暂无可查看的原文')
       return
     }
-    const storage = new DiaryStorage()
-    const diary = storage.getById(this.currentDiaryId)
+    
+    const diary = await storage.getById(this.currentDiaryId)
     if (!diary) {
       this.showToast('日记不存在')
       return
@@ -906,9 +919,9 @@ class UIManager {
     }
   }
 
-  showAnalysisModal(diaryId, analysis) {
-    const storage = new DiaryStorage()
-    const diary = storage.getById(diaryId)
+  async showAnalysisModal(diaryId, analysis) {
+    
+    const diary = await storage.getById(diaryId)
 
     const baseContent = this.getDiaryEffectiveContent(diary)
     const highlightedContent = this.highlightNegativeSentences(baseContent, analysis)
@@ -991,15 +1004,15 @@ class UIManager {
 
     const handler = (fn) => {
       return async () => {
-        const storage = new DiaryStorage()
-        const diary = storage.getById(diaryId)
+        
+        const diary = await storage.getById(diaryId)
         let updatedContent = ''
         let updatedTitle = ''
         if (diary) {
           const result = await fn(diaryId, diary, storage)
           updatedContent = result?.content || ''
           updatedTitle = result?.title || ''
-          this.renderDiaryList()
+          await this.renderDiaryList()
         }
         modal.classList.add('hidden')
         if (updatedContent) {
@@ -1015,18 +1028,18 @@ class UIManager {
       }
     }
 
-    btnKeepOriginal.onclick = handler((id, diary, storage) => {
+    btnKeepOriginal.onclick = handler(async (id, diary, storage) => {
       const baseContent = this.getDiaryEffectiveContent(diary)
-      storage.saveFinalVersion(id, baseContent)
+      await storage.saveFinalVersion(id, baseContent)
       this.showToast('已保留原文')
       return { content: baseContent, title: diary.title }
     })
 
-    btnUseRewritten.onclick = handler((id, diary, storage) => {
+    btnUseRewritten.onclick = handler(async (id, diary, storage) => {
       const rewritten = diary?.analysis?.rewritten_version || ''
       const newTitle = diary?.analysis?.title || ''
       if (rewritten) {
-        storage.update(id, {
+        await storage.update(id, {
           finalVersion: rewritten,
           structured_version: rewritten,
           title: newTitle || undefined
@@ -1040,8 +1053,8 @@ class UIManager {
     })
 
     btnRegenerate.onclick = async () => {
-      const storage = new DiaryStorage()
-      const diary = storage.getById(diaryId)
+      
+      const diary = await storage.getById(diaryId)
       if (!diary) return
       const baseContent = this.getDiaryEffectiveContent(diary)
 
@@ -1054,9 +1067,9 @@ class UIManager {
           this.updateProgress(percent, status, info)
         })
 
-        storage.saveAnalysis(diaryId, result)
+        await storage.saveAnalysis(diaryId, result)
 
-        this.showAnalysisModal(diaryId, result)
+        await this.showAnalysisModal(diaryId, result)
         this.showToast('已重新生成')
 
       } catch (error) {
@@ -1084,11 +1097,11 @@ class UIManager {
     }
   }
 
-  saveApiKey() {
+  async saveApiKey() {
     const key = this.elements.settingsApiKey.value.trim()
     if (Config.setApiKey(key)) {
       this.showToast('API Key已保存')
-      this.showList()
+      await this.showList()
     } else {
       this.showToast('请输入有效的API Key')
     }
@@ -1150,7 +1163,7 @@ class UIManager {
       return
     }
 
-    const storage = new DiaryStorage()
+    
     storage.saveImgURLConfig({ upload_url: uploadUrl, token })
     this.showToast('保存成功')
   }
@@ -1199,9 +1212,9 @@ class UIManager {
 
   async deleteDiary(id) {
     if (confirm('确定要删除这篇日记吗？')) {
-      const storage = new DiaryStorage()
-      storage.delete(id)
-      this.renderDiaryList()
+      
+      await storage.delete(id)
+      await this.renderDiaryList()
       this.showToast('日记已删除')
     }
   }
@@ -1548,9 +1561,9 @@ class UIManager {
   viewerCurrentWeeklyId = null
   viewerWeeklies = []
 
-  showViewer(diaryId) {
-    const storage = new DiaryStorage()
-    this.viewerDiaries = storage.getAll()
+  async showViewer(diaryId) {
+    
+    this.viewerDiaries = await storage.getAll()
     this.viewerMode = 'diary'
 
     const currentIndex = this.viewerDiaries.findIndex(d => d.id === diaryId)
@@ -1562,8 +1575,8 @@ class UIManager {
     this.viewerCurrentDiaryId = diaryId
     this.viewerFontSize = 18
 
-    this.renderViewerContent(diaryId)
-    this.updateViewerNavigation()
+    await this.renderViewerContent(diaryId)
+    await this.updateViewerNavigation()
     this.updateViewerFontSize()
 
     const modal = document.getElementById('modal-viewer')
@@ -1573,9 +1586,9 @@ class UIManager {
     document.body.style.overflow = ''
   }
 
-  showWeeklyViewer(weeklyId) {
-    const storage = new DiaryStorage()
-    this.viewerWeeklies = storage.getAllWeekly().slice().sort((a, b) => new Date(a.startDate) - new Date(b.startDate))
+  async showWeeklyViewer(weeklyId) {
+    
+    this.viewerWeeklies = (await storage.getAllWeekly()).slice().sort((a, b) => new Date(a.startDate) - new Date(b.startDate))
     this.viewerMode = 'weekly'
 
     const currentIndex = this.viewerWeeklies.findIndex(w => w.id === weeklyId)
@@ -1587,8 +1600,8 @@ class UIManager {
     this.viewerCurrentWeeklyId = weeklyId
     this.viewerFontSize = 18
 
-    this.renderWeeklyViewerContent(weeklyId)
-    this.updateViewerNavigation()
+    await this.renderWeeklyViewerContent(weeklyId)
+    await this.updateViewerNavigation()
     this.updateViewerFontSize()
 
     const modal = document.getElementById('modal-viewer')
@@ -1604,9 +1617,9 @@ class UIManager {
     document.body.style.overflow = ''
   }
 
-  renderViewerContent(diaryId) {
-    const storage = new DiaryStorage()
-    const diary = storage.getById(diaryId)
+  async renderViewerContent(diaryId) {
+    
+    const diary = await storage.getById(diaryId)
     if (!diary) return
 
     const normalized = this.normalizeDiaryContent(diary)
@@ -1658,9 +1671,9 @@ class UIManager {
     article.style.fontSize = `${this.viewerFontSize}px`
   }
 
-  renderWeeklyViewerContent(weeklyId) {
-    const storage = new DiaryStorage()
-    const weekly = storage.getWeeklyById(weeklyId)
+  async renderWeeklyViewerContent(weeklyId) {
+    
+    const weekly = await storage.getWeeklyById(weeklyId)
     if (!weekly) return
 
     const article = document.getElementById('viewer-article')
@@ -1732,7 +1745,7 @@ class UIManager {
     }
   }
 
-  navigateViewer(direction) {
+  async navigateViewer(direction) {
     if (this.viewerMode === 'weekly') {
       const weeklies = this.viewerWeeklies
       if (weeklies.length === 0) return
@@ -1747,14 +1760,14 @@ class UIManager {
 
       if (weeklies[newIndex]) {
         this.viewerCurrentWeeklyId = weeklies[newIndex].id
-        this.renderWeeklyViewerContent(weeklies[newIndex].id)
-        this.updateViewerNavigation()
+        await this.renderWeeklyViewerContent(weeklies[newIndex].id)
+        await this.updateViewerNavigation()
       }
       return
     }
 
-    const storage = new DiaryStorage()
-    const diaries = storage.getAll()
+    
+    const diaries = await storage.getAll()
     const currentIndex = diaries.findIndex(d => d.id === this.viewerCurrentDiaryId)
 
     let newIndex
@@ -1766,12 +1779,12 @@ class UIManager {
 
     if (diaries[newIndex]) {
       this.viewerCurrentDiaryId = diaries[newIndex].id
-      this.renderViewerContent(diaries[newIndex].id)
-      this.updateViewerNavigation()
+      await this.renderViewerContent(diaries[newIndex].id)
+      await this.updateViewerNavigation()
     }
   }
 
-  updateViewerNavigation() {
+  async updateViewerNavigation() {
     const btnPrev = document.getElementById('btn-prev-diary')
     const btnNext = document.getElementById('btn-next-diary')
 
@@ -1786,8 +1799,8 @@ class UIManager {
       return
     }
 
-    const storage = new DiaryStorage()
-    const diaries = storage.getAll()
+    
+    const diaries = await storage.getAll()
 
     if (diaries.length <= 1) {
       btnPrev.style.visibility = 'hidden'
@@ -1825,7 +1838,7 @@ class UIManager {
     this.updateWeeklyImagePreview()
     this.updateWeeklyResultImages([])
     this.hideUploadStatus('weekly')
-    this.prepareWeeklySelector()
+    await this.prepareWeeklySelector()
     this.showWeeklySelectorView()
   }
 
@@ -2029,9 +2042,9 @@ class UIManager {
     }
   }
 
-  prepareWeeklySelector() {
-    const storage = new DiaryStorage()
-    this.weeklyAllDiaries = storage.getAll().slice().sort((a, b) => new Date(a.date) - new Date(b.date))
+  async prepareWeeklySelector() {
+    
+    this.weeklyAllDiaries = (await storage.getAll()).slice().sort((a, b) => new Date(a.date) - new Date(b.date))
     const lastWeek = this.getWeeklyRangeByType('last-week')
     this.weeklySelection = {
       mode: 'range',
@@ -2226,7 +2239,7 @@ class UIManager {
   }
 
   getWeeklyRangeByType(type) {
-    const storage = new DiaryStorage()
+    
     const now = new Date()
     if (type === 'this-week') {
       return storage.getWeekRangeByDate(now)
@@ -2320,7 +2333,7 @@ class UIManager {
 
   getWeeklyDateRangeFromDiaries(diaries) {
     if (!diaries || diaries.length === 0) return null
-    const storage = new DiaryStorage()
+    
     const dates = diaries.map(d => new Date(d.date)).sort((a, b) => a - b)
     return {
       startDate: storage.formatDateToISO(dates[0]),
@@ -2329,7 +2342,7 @@ class UIManager {
   }
 
   getWeekInfoFromDate(dateStr) {
-    const storage = new DiaryStorage()
+    
     const date = new Date(dateStr)
     return {
       year: date.getFullYear(),
@@ -2337,18 +2350,18 @@ class UIManager {
     }
   }
 
-  getWeeklyDiariesFromCurrent(storage) {
+  async getWeeklyDiariesFromCurrent(storage) {
     if (this.currentWeeklyData.diaryIds && this.currentWeeklyData.diaryIds.length > 0) {
-      const diaries = storage.getAll()
+      const diaries = await storage.getAll()
       return diaries
         .filter(diary => this.currentWeeklyData.diaryIds.includes(diary.id))
         .sort((a, b) => new Date(a.date) - new Date(b.date))
     }
     if (this.currentWeeklyData.startDate && this.currentWeeklyData.endDate) {
-      return storage.getDiariesInDateRange(this.currentWeeklyData.startDate, this.currentWeeklyData.endDate)
+      return await storage.getDiariesInDateRange(this.currentWeeklyData.startDate, this.currentWeeklyData.endDate)
     }
     if (this.currentWeeklyData.year && this.currentWeeklyData.weekNumber) {
-      return storage.getDiariesForWeek(this.currentWeeklyData.year, this.currentWeeklyData.weekNumber)
+      return await storage.getDiariesForWeek(this.currentWeeklyData.year, this.currentWeeklyData.weekNumber)
     }
     return []
   }
@@ -2371,8 +2384,8 @@ class UIManager {
   async regenerateWeekly() {
     if (!this.currentWeeklyData) return
 
-    const storage = new DiaryStorage()
-    const diaries = this.getWeeklyDiariesFromCurrent(storage)
+    
+    const diaries = await this.getWeeklyDiariesFromCurrent(storage)
     if (diaries.length === 0) {
       this.showToast('没有找到可重新生成的日记')
       return
@@ -2434,25 +2447,24 @@ class UIManager {
     }
   }
 
-  saveWeekly() {
+  async saveWeekly() {
     if (!this.currentWeeklyData) return
 
-    const storage = new DiaryStorage()
     this.currentWeeklyData = {
       ...this.currentWeeklyData,
       images: [...this.weeklyImages],
       footer_images: [...this.weeklyFooterImages]
     }
-    const weekly = storage.createWeekly(this.currentWeeklyData)
+    const weekly = await storage.createWeekly(this.currentWeeklyData)
 
     this.hideWeeklyModal()
-    this.showWeeklyList()
+    await this.showWeeklyList()
     this.showToast('周记已保存')
   }
 
-  editWeekly(id) {
-    const storage = new DiaryStorage()
-    const weekly = storage.getWeeklyById(id)
+  async editWeekly(id) {
+    
+    const weekly = await storage.getWeeklyById(id)
 
     if (!weekly) {
       this.showToast('周记不存在')
@@ -2462,13 +2474,13 @@ class UIManager {
     this.showWeeklyEditor(weekly, true)
   }
 
-  openWeeklyEditorFromCurrent() {
+  async openWeeklyEditorFromCurrent() {
     if (!this.currentWeeklyData) {
       this.showToast('暂无可编辑的周记')
       return
     }
-    const storage = new DiaryStorage()
-    const existing = storage.getWeeklyById(this.currentWeeklyData.id)
+    
+    const existing = await storage.getWeeklyById(this.currentWeeklyData.id)
     const data = existing ? { ...existing } : { ...this.currentWeeklyData }
     this.showWeeklyEditor(data, Boolean(existing))
   }
@@ -2527,7 +2539,7 @@ class UIManager {
     }
   }
 
-  saveWeeklyEdit() {
+  async saveWeeklyEdit() {
     const titleInput = document.getElementById('weekly-editor-title')
     const summaryInput = document.getElementById('weekly-editor-summary')
     const titleValue = titleInput ? titleInput.value.trim() : ''
@@ -2550,15 +2562,15 @@ class UIManager {
     }
 
     if (this.weeklyEditingExisting) {
-      const storage = new DiaryStorage()
-      storage.updateWeekly(this.currentWeeklyData.id, {
+      
+      await storage.updateWeekly(this.currentWeeklyData.id, {
         title: finalTitle,
         summary: summaryValue,
         images,
         footer_images: footerImages
       })
       this.hideWeeklyModal()
-      this.renderWeeklyList()
+      await this.renderWeeklyList()
       this.showToast('周记已更新')
       return
     }
@@ -2567,14 +2579,14 @@ class UIManager {
     this.showToast('周记内容已更新')
   }
 
-  showWeeklyList() {
-    this.renderWeeklyList()
+  async showWeeklyList() {
+    await this.renderWeeklyList()
     this.showView('weekly')
   }
 
-  renderWeeklyList() {
-    const storage = new DiaryStorage()
-    const weeklies = storage.getAllWeekly()
+  async renderWeeklyList() {
+    
+    const weeklies = await storage.getAllWeekly()
 
     const listEl = document.getElementById('weekly-list')
 
@@ -2617,16 +2629,77 @@ class UIManager {
     }).join('')
   }
 
-  viewWeekly(id) {
-    this.showWeeklyViewer(id)
+  async viewWeekly(id) {
+    await this.showWeeklyViewer(id)
   }
 
-  deleteWeekly(id) {
+  async deleteWeekly(id) {
     if (confirm('确定要删除这篇周记吗？')) {
-      const storage = new DiaryStorage()
-      storage.deleteWeekly(id)
-      this.renderWeeklyList()
+      
+      await storage.deleteWeekly(id)
+      await this.renderWeeklyList()
       this.showToast('周记已删除')
     }
   }
+
+  updateStorageStatus(message, type) {
+    if (!this.elements.storageStatus) return
+
+    this.elements.storageStatus.textContent = message
+
+    // Update color based on type
+    this.elements.storageStatus.style.color = type === 'filesystem' ? '#4CAF50' :
+                                                type === 'localStorage-upgrade' ? '#FF9800' :
+                                                'var(--text-secondary)'
+
+    // Add click hint for upgrade
+    if (type === 'localStorage-upgrade') {
+      this.elements.storageStatus.style.cursor = 'pointer'
+      this.elements.storageStatus.title = '点击升级到文件存储'
+    } else if (type === 'filesystem') {
+      this.elements.storageStatus.style.cursor = 'default'
+      this.elements.storageStatus.title = '数据保存到本地文件'
+    } else {
+      this.elements.storageStatus.style.cursor = 'default'
+    }
+  }
+
+  async handleStorageStatusClick() {
+    if (!storage.useFileSystem && storage.fs.isSupported) {
+      const confirmed = confirm('升级到文件存储模式：\n\n' +
+                               '✅ 数据自动保存到本地 JSON 文件\n' +
+                               '✅ 刷新页面后自动恢复文件连接\n' +
+                               '✅ 数据更安全，不会因清除浏览器缓存丢失\n\n' +
+                               '是否继续？')
+
+      if (confirmed) {
+        try {
+          const success = await storage.enableFileSystem()
+          if (success) {
+            this.showToast('已升级到文件存储！数据将保存到 diary.json')
+          } else {
+            this.showToast('升级失败，请重试')
+          }
+        } catch (error) {
+          this.showToast('升级失败: ' + error.message)
+        }
+      }
+    }
+  }
+
 }
+
+// Initialize global storage instance
+let storage
+async function initStorage() {
+  storage = new DiaryStorage()
+  await storage.init()
+}
+
+// Auto-initialize when DOM is ready
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initStorage)
+} else {
+  initStorage()
+}
+

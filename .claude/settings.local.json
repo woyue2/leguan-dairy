@@ -1,7 +1,18 @@
 {
   "permissions": {
     "allow": [
-      "WebFetch(domain:blog.csdn.net)"
+      "WebFetch(domain:blog.csdn.net)",
+      "Bash(node:*)",
+      "Bash(ls:*)",
+      "Bash(docker run:*)",
+      "Bash(curl:*)",
+      "Bash(docker logs:*)",
+      "Bash(docker-compose down:*)",
+      "Bash(docker-compose up:*)",
+      "Bash(docker rmi:*)",
+      "Bash(docker-compose build:*)",
+      "Bash(explorer.exe http://localhost:3000)",
+      "Bash(docker exec:*)"
     ]
   }
 }

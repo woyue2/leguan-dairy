@@ -1,0 +1,25 @@
+version: '3.8'
+
+services:
+  diary-app:
+    build: .
+    container_name: diary-app
+    ports:
+      - "3000:3000"
+    volumes:
+      # 数据持久化 - 保存到服务器的这个目录
+      - diary-data:/data/diary
+    environment:
+      - NODE_ENV=production
+      - DATA_DIR=/data/diary
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+volumes:
+  diary-data:
+    driver: local

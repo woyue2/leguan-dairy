@@ -3,29 +3,80 @@ class DoingManager {
         this.tasks = []
         this.activeFilter = null
         this.storageKey = "diary-doing-tasks"
+        this.useServerStorage = true  // 使用服务器存储
         this.loadTasks()
         this.initAnimations()
     }
 
-    loadTasks() {
-        try {
-            const saved = localStorage.getItem(this.storageKey)
-            if (saved) {
-                this.tasks = JSON.parse(saved)
-            } else {
+    async loadTasks() {
+        if (this.useServerStorage) {
+            try {
+                const response = await fetch('/api/doing')
+                if (response.ok) {
+                    const data = await response.json()
+                    this.tasks = data.length > 0 ? data : this.getDefaultTasks()
+                } else {
+                    throw new Error('API 请求失败')
+                }
+            } catch (e) {
+                console.error("从服务器加载任务失败，使用本地缓存:", e)
+                // 降级到 localStorage
+                const saved = localStorage.getItem(this.storageKey)
+                if (saved) {
+                    this.tasks = JSON.parse(saved)
+                } else {
+                    this.tasks = this.getDefaultTasks()
+                }
+            }
+        } else {
+            // 使用 localStorage（备用方案）
+            try {
+                const saved = localStorage.getItem(this.storageKey)
+                if (saved) {
+                    this.tasks = JSON.parse(saved)
+                } else {
+                    this.tasks = this.getDefaultTasks()
+                }
+            } catch (e) {
+                console.error("加载任务失败:", e)
                 this.tasks = this.getDefaultTasks()
             }
-        } catch (e) {
-            console.error("加载任务失败:", e)
-            this.tasks = this.getDefaultTasks()
         }
     }
 
-    saveTasks() {
-        try {
-            localStorage.setItem(this.storageKey, JSON.stringify(this.tasks))
-        } catch (e) {
-            console.error("保存任务失败:", e)
+    async saveTasks() {
+        if (this.useServerStorage) {
+            try {
+                const response = await fetch('/api/doing', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(this.tasks)
+                })
+
+                if (response.ok) {
+                    // 同时备份到 localStorage
+                    localStorage.setItem(this.storageKey, JSON.stringify(this.tasks))
+                    return true
+                } else {
+                    throw new Error('API 请求失败')
+                }
+            } catch (e) {
+                console.error("保存任务到服务器失败，已保存到本地:", e)
+                // 降级到 localStorage
+                localStorage.setItem(this.storageKey, JSON.stringify(this.tasks))
+                return false
+            }
+        } else {
+            // 使用 localStorage（备用方案）
+            try {
+                localStorage.setItem(this.storageKey, JSON.stringify(this.tasks))
+                return true
+            } catch (e) {
+                console.error("保存任务失败:", e)
+                return false
+            }
         }
     }
 
@@ -61,7 +112,7 @@ class DoingManager {
         }
     }
 
-    addTask() {
+    async addTask() {
         const input = document.getElementById("new-task-input")
         const text = input.value.trim()
         if (!text) return
@@ -91,7 +142,7 @@ class DoingManager {
         }
 
         this.tasks.push(newTask)
-        this.saveTasks()
+        await this.saveTasks()
         this.renderTasks()
         this.updateProgress()
 
@@ -131,11 +182,11 @@ class DoingManager {
         })
     }
 
-    toggleTask(id, checkbox) {
+    async toggleTask(id, checkbox) {
         const task = this.tasks.find(t => t.id === id)
         if (task) {
             task.completed = checkbox.checked
-            this.saveTasks()
+            await this.saveTasks()
 
             const item = checkbox.closest(".todo-item")
             if (checkbox.checked) {
@@ -148,11 +199,11 @@ class DoingManager {
         }
     }
 
-    updateRemark(id, value) {
+    async updateRemark(id, value) {
         const task = this.tasks.find(t => t.id === id)
         if (task) {
             task.remark = value
-            this.saveTasks()
+            await this.saveTasks()
         }
     }
 
@@ -244,6 +295,7 @@ let doingManager
 document.addEventListener("DOMContentLoaded", () => {
     doingManager = new DoingManager()
     doingManager.init()
+    document.getElementById("btn-all-tasks").click();
 })
 
 function addTask() { doingManager?.addTask() }
