@@ -223,14 +223,16 @@ class DoingManager {
             // 删除按钮
             const deleteBtn = document.createElement("button")
             deleteBtn.className = "todo-delete-btn"
-            deleteBtn.textContent = "删除"
+            deleteBtn.textContent = "🗑️ 删除"
             deleteBtn.onclick = () => this.deleteTask(task.id)
+            console.log("删除按钮已创建:", deleteBtn)
 
             div.appendChild(checkboxWrapper)
             div.appendChild(textDiv)
             div.appendChild(remarkInput)
             div.appendChild(deleteBtn)
             list.appendChild(div)
+            console.log("任务项已添加到DOM，包含", div.children.length, "个子元素")
         })
     }
 

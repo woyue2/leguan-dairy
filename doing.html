@@ -120,8 +120,8 @@
         .back-btn { text-decoration: none; color: var(--text-secondary); display: flex; align-items: center; gap: 5px; font-weight: bold; }
         .back-btn:hover { color: var(--accent-color); }
         /* 删除按钮样式 */
-        .todo-delete-btn { padding: 4px 8px; background: transparent; color: var(--danger-color); border: 1px solid var(--danger-color); border-radius: 4px; cursor: pointer; transition: all 0.2s; font-size: 0.85rem; flex-shrink: 0; white-space: nowrap; }
-        .todo-delete-btn:hover { background: var(--danger-color); color: white; }
+        .todo-delete-btn { padding: 6px 12px; background: #fff0f0; color: #ff4757; border: 2px solid #ff4757; border-radius: 6px; cursor: pointer; transition: all 0.2s; font-size: 0.9rem; flex-shrink: 0; white-space: nowrap; font-weight: bold; margin-left: 8px; }
+        .todo-delete-btn:hover { background: #ff4757; color: white; transform: scale(1.05); }
         /* 删除动画 */
         .todo-item.deleting { animation: slideOut 0.3s ease-out forwards; }
         @keyframes slideOut { 0% { opacity: 1; transform: translateX(0); } 100% { opacity: 0; transform: translateX(100%); } }
@@ -188,7 +188,7 @@
             <div><input type="text" class="reflection-input" placeholder="每日反思/小确幸: 今天最棒的一件事是..."></div>
         </footer>
     </div>
-    <script src="config/env.js"></script>
-    <script src="js/doing.js"></script>
+    <script src="config/env.js?v=2"></script>
+    <script src="js/doing.js?v=2"></script>
 </body>
 </html>

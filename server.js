@@ -47,10 +47,11 @@ ensureDataFiles();
 app.get('/api/diaries', async (req, res) => {
   try {
     const data = await fs.readFile(DIARY_FILE, 'utf8');
-    res.json(JSON.parse(data));
+    const parsed = JSON.parse(data);
+    res.json(Array.isArray(parsed) ? parsed : []);
   } catch (error) {
     console.error('Error reading diaries:', error);
-    res.status(500).json({ error: 'Failed to read diaries' });
+    res.json([]); // 总是返回空数组，而不是错误对象
   }
 });
 
@@ -70,10 +71,11 @@ app.post('/api/diaries', async (req, res) => {
 app.get('/api/weeklies', async (req, res) => {
   try {
     const data = await fs.readFile(WEEKLY_FILE, 'utf8');
-    res.json(JSON.parse(data));
+    const parsed = JSON.parse(data);
+    res.json(Array.isArray(parsed) ? parsed : []);
   } catch (error) {
     console.error('Error reading weeklies:', error);
-    res.status(500).json({ error: 'Failed to read weeklies' });
+    res.json([]); // 总是返回空数组
   }
 });
 
@@ -95,10 +97,11 @@ app.post('/api/weeklies', async (req, res) => {
 app.get('/api/doing', async (req, res) => {
   try {
     const data = await fs.readFile(DOING_FILE, 'utf8');
-    res.json(JSON.parse(data));
+    const parsed = JSON.parse(data);
+    res.json(Array.isArray(parsed) ? parsed : []);
   } catch (error) {
     console.error('Error reading doing tasks:', error);
-    res.status(500).json({ error: 'Failed to read doing tasks' });
+    res.json([]); // 总是返回空数组
   }
 });
 
