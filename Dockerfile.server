@@ -29,6 +29,9 @@ COPY --from=frontend-builder /app/dist /usr/share/nginx/html
 # 创建数据目录
 RUN mkdir -p /data/diary
 
+# 声明持久化数据卷（实际挂载仍需在 docker run / compose 中指定）
+VOLUME ["/data/diary"]
+
 # 复制 nginx 配置
 COPY nginx-server.conf /etc/nginx/conf.d/default.conf
 

@@ -15,6 +15,9 @@ RUN npm install --production
 # 创建数据目录
 RUN mkdir -p /data/diary
 
+# 声明持久化数据卷（实际挂载仍需在 docker run / compose 中指定）
+VOLUME ["/data/diary"]
+
 # 复制前端文件
 COPY . /usr/share/nginx/html/
 
