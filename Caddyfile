@@ -1,0 +1,15 @@
+doing-dairy.wdhonghong.sbs {
+    encode gzip zstd
+
+    log {
+        output file /var/log/caddy/doing-dairy.access.log {
+            roll_size 10MiB
+            roll_keep 10
+            roll_keep_for 168h
+        }
+        format console
+    }
+
+    # ⚠️ 不确定因素: 当前按上游 127.0.0.1:4000 配置，若应用端口调整需同步修改。
+    reverse_proxy 127.0.0.1:4000
+}

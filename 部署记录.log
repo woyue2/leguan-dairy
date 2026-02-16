@@ -1,0 +1,432 @@
+=====================================================================
+✅【当前生效标准】- Caddy(宿主机) + 整站PWA
+日期: 2026-02-16
+
+⚠️ 说明:
+- 以下为当前唯一建议执行流程
+- 本文件后续历史片段（包含 3000/4000 混用）仅保留作追溯，不再作为执行标准
+
+─────────────────────────────────────────────────────────────
+🎯 当前目标
+─────────────────────────────────────────────────────────────
+- 对外入口统一为: https://doing-dairy.wdhonghong.sbs
+- 反向代理: Caddy(宿主机) -> 127.0.0.1:4000
+- PWA 作用域: 整个站点（默认入口 doing.html）
+
+─────────────────────────────────────────────────────────────
+🚀 启动与更新（应用容器）
+─────────────────────────────────────────────────────────────
+本地构建并上传:
+cd /home/aa/Park/diary-app
+docker build -t diary-app:latest .
+docker save diary-app:latest > diary-app.tar
+scp diary-app.tar root@172.245.82.114:/root/
+
+服务器更新:
+ssh root@172.245.82.114
+docker load < /root/diary-app.tar
+docker stop diary-app 2>/dev/null || true
+docker rm diary-app 2>/dev/null || true
+docker run -d \
+  --name diary-app \
+  -p 4000:3000 \
+  -v diary-data:/data/diary \
+  --restart unless-stopped \
+  diary-app:latest
+
+─────────────────────────────────────────────────────────────
+🔐 Caddy（宿主机）部署
+─────────────────────────────────────────────────────────────
+1) 安装 Caddy（Debian/Ubuntu 示例）
+sudo apt update
+sudo apt install -y caddy
+
+2) 下发配置
+sudo cp /root/apps/leguan-dairy/Caddyfile /etc/caddy/Caddyfile
+
+3) 启动并开机自启
+sudo systemctl daemon-reload
+sudo systemctl enable --now caddy
+sudo systemctl restart caddy
+
+4) 查看日志（证书签发/回源排障）
+sudo journalctl -u caddy -f
+sudo tail -f /var/log/caddy/doing-dairy.access.log
+
+─────────────────────────────────────────────────────────────
+✅ 验证清单
+─────────────────────────────────────────────────────────────
+1) DNS:
+dig +short doing-dairy.wdhonghong.sbs
+期望: 返回 172.245.82.114
+
+2) HTTPS:
+curl -I https://doing-dairy.wdhonghong.sbs/doing.html
+期望: HTTP 200，浏览器证书无告警
+
+3) 回源:
+curl https://doing-dairy.wdhonghong.sbs/api/health
+期望: status=ok 且 dataDir=/data/diary
+
+4) PWA:
+- 打开 https://doing-dairy.wdhonghong.sbs/doing.html
+- DevTools -> Application -> Manifest: 可识别
+- DevTools -> Application -> Service Workers: sw.js 已激活，scope=/
+- 浏览器可出现“安装应用”
+
+5) 业务回归:
+- doing 新增/删除/勾选后刷新仍在
+- 日记/周记新增保存后刷新仍在
+
+─────────────────────────────────────────────────────────────
+🧯 故障快速排查
+─────────────────────────────────────────────────────────────
+- 证书失败: 先检查 80/443 是否放行、是否被占用
+- 502/网关错误: 核对 Caddy 上游是否为 127.0.0.1:4000
+- PWA不显示安装: 核对 manifest 与 sw.js 是否加载成功
+
+=====================================================================
+
+=== ai帮我打包
+
+✅【HelloAGENTS】- 轻量迭代完成
+- ✅ 已创建 Dockerfile：基于 nginx:alpine 的静态文件服务
+- ✅ 已创建 .dockerignore：排除无需打包的文件和目录
+- 📦 镜像构建命令：docker build -t diary-app:latest .
+- 📦 镜像导出命令：docker save diary-app:latest > diary-app.tar
+────
+📁 变更:
+  - /home/aa/Park/diary-app/Dockerfile
+  - /home/aa/Park/diary-app/.dockerignore
+🔄 下一步: 执行构建并上传到服务器：
+1. cd /home/aa/Park/diary-app && docker build -t diary-app:latest .
+2. docker save diary-app:latest > diary-app.tar
+3. scp diary-app.tar root@你的服务器IP:/root/
+ scp diary-app.tar root@172.245.142.4:/root/
+--------
+
+服务器上还需要执行：
+# 1. 加载镜像
+docker load < diary-app.tar
+# 2. 运行容器
+docker run -d -p 3000:3000 --name diary-app diary-app:latest
+然后访问 http://你的服务器IP:3000 即可。
+---
+
+
+后续更新流程：
+# 本地（WSL）
+cd /home/aa/Park/diary-app
+docker stop diary-app && docker rm diary-app
+docker build -t diary-app:latest .
+docker save diary-app:latest > diary-app.tar
+scp diary-app.tar root@你的服务器IP:/root/
+#
+服务器
+docker load < diary-app.tar
+docker run -d -p 3000:3000 --name diary-app diary-app:latest
+-----
+更新：
+方案 1：删除旧容器（推荐）
+# Stop and Remove
+docker stop diary-app
+docker rm diary-app
+docker run -d -p 3000:3000 --name diary-app diary-app:latest
+
+更新little write
+
+=====================================================================
+
+🔄【重大架构升级】- 服务器端存储实现
+日期: 2026-02-06
+
+❗ 问题与解决方案
+─────────────────────────────────────────────────────────────
+问题: "为什么不能放到容器里面？？？？？"
+
+之前的方案问题：
+- File System API → 数据保存在用户本地电脑
+- 每个设备各自保存数据
+- 换设备 = 数据丢失
+- 不适合部署场景
+
+新方案优势：
+✅ 服务器端存储 → 数据保存在 Docker 容器中
+✅ 所有设备访问看到相同数据
+✅ Docker Volume 持久化数据
+✅ 完美适合部署场景
+
+─────────────────────────────────────────────────────────────
+📦 新增文件
+─────────────────────────────────────────────────────────────
+后端服务：
+  - server.js              ← Node.js Express API 服务器
+  - package.json           ← Node.js 依赖 (express, cors)
+  - docker-entrypoint.sh   ← 启动脚本（同时启动 Nginx + Node.js）
+  - nginx-server.conf      ← Nginx 配置（API 代理）
+
+前端存储：
+  - js/storage-server.js  ← 服务器端存储实现（替代 storage.js）
+
+部署配置：
+  - docker-compose.yml     ← Docker Compose 配置
+  - Dockerfile             ← 更新为多阶段构建（Nginx + Node.js）
+
+文档：
+  - README_SERVER.md       ← 快速开始指南
+  - SERVER_STORAGE_GUIDE.md ← 完整部署文档
+
+─────────────────────────────────────────────────────────────
+🏗️ 技术架构
+─────────────────────────────────────────────────────────────
+┌─────────────────────────────────────────────────────────┐
+│  用户设备（任何设备）                                     │
+│  http://172.245.142.4:3000                             │
+└─────────────────────────────────────────────────────────┘
+                    ↓
+┌─────────────────────────────────────────────────────────┐
+│  Docker 容器                                             │
+│                                                          │
+│  Nginx (前端)                    Node.js (后端API)        │
+│  - HTML, CSS, JS               - Express                 │
+│  - 静态文件服务                  - /api/diaries           │
+│                                  - /api/weeklies          │
+│                                  - /api/health            │
+└─────────────────────────────────────────────────────────┘
+                    ↓
+┌─────────────────────────────────────────────────────────┐
+│  Docker Volume: diary-data                                │
+│  - /data/diary/diary.json                                 │
+│  - /data/diary/weekly.json                                │
+└─────────────────────────────────────────────────────────┘
+
+─────────────────────────────────────────────────────────────
+📁 数据存储位置
+─────────────────────────────────────────────────────────────
+Docker Volume: diary-data
+实际路径: /var/lib/docker/volumes/diary-data/_data/
+
+访问方式：
+1. 进入容器: docker exec -it diary-app sh
+   cat /data/diary/diary.json
+
+2. 直接查看: docker run --rm -v diary-data:/data alpine \
+   cat /data/diary/diary.json
+
+3. API调用: curl http://172.245.142.4:3000/api/diaries
+
+─────────────────────────────────────────────────────────────
+🚀 部署步骤
+─────────────────────────────────────────────────────────────
+方式1: Docker Compose（推荐）
+───────────────────────────────
+cd /home/aa/Park/diary-app
+docker-compose up -d
+
+方式2: Docker 命令
+───────────────────────────────
+
+-v /root/apps/leguan-dairy/data:/data/diary \
+
+cd /home/aa/Park/diary-app
+docker build -t diary-app:latest .
+docker run -d \
+  --name diary-app \
+  -p 4000:3000 \
+  -v diary-data:/data/diary \
+  --restart unless-stopped \
+  diary-app:latest
+
+方式3: 部署到远程服务器
+───────────────────────────────
+# 本地（WSL）
+cd /home/aa/Park/diary-app
+docker build -t diary-app:latest .
+docker save diary-app:latest > diary-app.tar
+scp diary-app.tar root@172.245.142.4:/root/
+
+# 服务器
+ssh root@172.245.142.4
+docker load < diary-app.tar
+docker stop diary-app 2>/dev/null || true
+docker rm diary-app 2>/dev/null || true
+docker run -d \
+  --name diary-app \
+  -p 4000:3000 \
+  -v diary-data:/data/diary \
+  --restart unless-stopped \
+  diary-app:latest
+
+─────────────────────────────────────────────────────────────
+✅ 验证部署
+─────────────────────────────────────────────────────────────
+1. 检查容器状态:
+   docker ps | grep diary-app
+
+2. 健康检查:
+   curl http://localhost:3000/api/health
+   预期输出:
+   {
+     "status": "ok",
+     "dataDir": "/data/diary",
+     "diariesCount": 0,
+     "weekliesCount": 0
+   }
+
+3. 浏览器测试:
+   - 访问: http://172.245.142.4:3000
+   - Header 显示: "服务器存储"
+   - 写日记并保存
+   - 刷新页面 - 数据应该还在
+   - 换设备访问 - 数据同步！
+
+─────────────────────────────────────────────────────────────
+💾 数据备份
+─────────────────────────────────────────────────────────────
+手动备份：
+───────────────────────────────
+docker run --rm \
+  -v diary-data:/data \
+  -v $(pwd):/backup \
+  alpine \
+  tar czf /backup/diary-backup-$(date +%Y%m%d).tar.gz -C /data .
+
+自动备份脚本（服务器）：
+───────────────────────────────
+cat > /root/backup-diary.sh << 'SCRIPT'
+#!/bin/bash
+BACKUP_DIR="/root/diary-backups"
+TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+mkdir -p "$BACKUP_DIR"
+
+docker run --rm \
+  -v diary-data:/data \
+  -v "$BACKUP_DIR":/backup \
+  alpine \
+  tar czf /backup/diary-$TIMESTAMP.tar.gz -C /data .
+
+echo "✅ 备份完成: diary-$TIMESTAMP.tar.gz"
+find "$BACKUP_DIR" -name "diary-*.tar.gz" -mtime +30 -delete
+SCRIPT
+
+chmod +x /root/backup-diary.sh
+
+# 添加到定时任务
+crontab -e
+# 添加: 0 2 * * * /root/backup-diary.sh >> /var/log/diary-backup.log 2>&1
+
+─────────────────────────────────────────────────────────────
+🔄 更新流程
+─────────────────────────────────────────────────────────────
+本地（WSL）：
+───────────────────────────────
+cd /home/aa/Park/diary-app
+docker stop diary-app 2>/dev/null || true
+docker rm diary-app 2>/dev/null || true
+docker build -t diary-app:latest .
+docker save diary-app:latest > diary-app.tar
+scp diary-app.tar root@172.245.142.4:/root/
+
+服务器：
+───────────────────────────────
+ssh root@172.245.142.4
+docker load < diary-app.tar
+docker stop diary-app
+docker rm diary-app
+docker run -d \
+  --name diary-app \
+  -p 3000:3000 \
+  -v diary-data:/data/diary \
+  --restart unless-stopped \
+  diary-app:latest
+
+─────────────────────────────────────────────────────────────
+📊 API 接口说明
+─────────────────────────────────────────────────────────────
+GET  /api/health         ← 健康检查
+GET  /api/diaries       ← 获取所有日记
+POST /api/diaries       ← 保存所有日记
+GET  /api/weeklies      ← 获取所有周记
+POST /api/weeklies      ← 保存所有周记
+GET  /api/export        ← 导出所有数据
+POST /api/import        ← 导入数据
+
+─────────────────────────────────────────────────────────────
+🎯 核心优势对比
+─────────────────────────────────────────────────────────────
+特性         │ File System API │ 服务器存储
+─────────────┼─────────────────┼────────────
+数据位置     │ 用户本地        │ Docker容器
+多设备同步   │ ❌ 不支持       │ ✅ 支持
+数据管理     │ 分散            │ 集中
+持久化       │ 浏览器依赖      │ Docker Volume
+备份         │ 手动            │ 自动
+部署友好     │ ❌ 不适合       │ ✅ 完美
+
+─────────────────────────────────────────────────────────────
+📖 相关文档
+─────────────────────────────────────────────────────────────
+- README_SERVER.md          ← 快速开始指南
+- SERVER_STORAGE_GUIDE.md   ← 完整部署文档
+- DATA_STORAGE_DESIGN.md    ← 数据存储设计
+
+─────────────────────────────────────────────────────────────
+✨ 完成状态
+─────────────────────────────────────────────────────────────
+✅ 后端 API 服务器实现完成
+✅ 前端存储层改造完成
+✅ Docker 配置更新完成
+✅ 数据持久化方案实现
+✅ 备份脚本准备完成
+✅ 部署文档编写完成
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🎉 重大升级完成！数据现在保存在服务器 Docker 容器中！
+
+   任何设备访问 → 相同数据 → 完美解决！
+
+=====================================================================
+
+=====================================================================
+
+🔄【Doing 任务服务器存储升级】
+日期: 2026-02-07
+
+升级内容:
+─────────────────────────────────────────────────────────────
+✅ Doing 任务从 localStorage 升级到服务器存储
+✅ 与日记、周记统一管理
+
+新增 API:
+─────────────────────────────────────────────────────────────
+GET  /api/doing    ← 获取所有任务
+POST /api/doing    ← 保存所有任务
+
+数据文件:
+─────────────────────────────────────────────────────────────
+/data/diary/doing.json  ← Doing 任务数据
+
+优势:
+─────────────────────────────────────────────────────────────
+✅ 多设备同步
+✅ 自动备份
+✅ 不会因清除缓存丢失
+✅ 与日记、周记统一管理
+✅ API 失败时降级到 localStorage
+
+修改文件:
+─────────────────────────────────────────────────────────────
+- server.js          ← 新增 doing API 端点
+- js/doing.js        ← 改用 API 存储数据
+
+导出/导入:
+─────────────────────────────────────────────────────────────
+导出现在包含:
+- diary.json   (日记)
+- weekly.json  (周记)
+- doing.json   (Doing 任务) ← 新增
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🎉 所有数据统一存储完成！
