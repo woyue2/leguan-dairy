@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Write Doing - 布局方案 1 (居中列表)</title>
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.3/Sortable.min.js"></script>
+    <link rel="stylesheet" href="../css/style.css">
+    <style>
+        /* 复用原有变量 */
+        :root { --accent-color: #4a90d9; --text-color: #2c3e50; --text-secondary: #7f8c8d; --danger-color: #ff6b6b; --purple-color: #5f27cd; }
+        
+        /* 基础布局调整 */
+        body { background-color: #f5f7fa; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
+        .doing-container { display: flex; flex-direction: column; height: 100vh; max-width: 800px; margin: 0 auto; padding: 20px; box-sizing: border-box; }
+        
+        /* 头部样式优化 */
+        .cornell-header { border-bottom: none; padding-bottom: 20px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: flex-end; }
+        .cornell-title-group h1 { margin: 0; font-size: 2.5rem; color: var(--text-color); letter-spacing: -1px; }
+        .cornell-date { color: var(--text-secondary); font-weight: 500; margin-top: 5px; }
+        
+        /* 隐藏左侧栏，只保留主内容区 */
+        .cornell-body { display: flex; flex: 1; overflow: hidden; flex-direction: column; }
+        .cornell-left { display: none; } /* 隐藏左侧栏 */
+        
+        /* 列表区域样式 */
+        .cornell-right { width: 100%; display: flex; flex-direction: column; padding: 0; }
+        .todo-list { flex: 1; overflow-y: auto; padding: 5px; }
+        
+        /* 任务项样式微调 */
+        .todo-item { 
+            display: flex; align-items: center; background: white; padding: 16px 20px; margin-bottom: 12px; 
+            border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.04); transition: all 0.2s; 
+            border-left: 5px solid #ccc; position: relative; overflow: hidden; gap: 15px; 
+        }
+        .todo-item:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(0,0,0,0.08); }
+        .todo-item.priority-urgent { border-left-color: var(--danger-color); }
+        .todo-item.priority-deep { border-left-color: var(--purple-color); }
+        .todo-item.priority-normal { border-left-color: var(--accent-color); }
+        
+        .todo-checkbox-wrapper { width: 24px; height: 24px; }
+        .todo-checkbox { width: 24px; height: 24px; cursor: pointer; accent-color: var(--accent-color); }
+        .todo-text { flex: 1; font-size: 1.15rem; color: #333; }
+        .todo-item.completed .todo-text { text-decoration: line-through; color: #aaa; }
+        
+        .todo-remark { border: none; background: #f8f9fa; padding: 4px 8px; border-radius: 4px; color: #666; font-size: 0.85rem; width: auto; max-width: 150px; text-align: right; }
+        
+        /* 添加任务栏固定在底部或跟随 */
+        .add-task-bar { margin-top: 20px; background: white; padding: 20px; border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.06); }
+        .input-row { display: flex; gap: 15px; align-items: center; }
+        .task-input { flex: 1; border: 2px solid #eee; border-radius: 8px; font-size: 1.1rem; padding: 12px 16px; outline: none; transition: border-color 0.2s; }
+        .task-input:focus { border-color: var(--accent-color); }
+        .btn-add { background: var(--accent-color); color: white; border: none; width: 48px; height: 48px; border-radius: 12px; font-size: 1.8rem; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s; }
+        .btn-add:hover { background: #357abd; transform: scale(1.05); }
+        
+        /* 底部进度条 */
+        .cornell-footer { margin-top: 20px; padding-top: 0; background: transparent; border: none; }
+        .progress-bar-bg { background: #e0e0e0; height: 6px; border-radius: 3px; }
+        
+        /* 返回按钮 */
+        .back-btn { padding: 8px 16px; background: #fff; border-radius: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); transition: all 0.2s; }
+        .back-btn:hover { background: #f0f2f5; }
+
+        /* 删除按钮 */
+        .todo-delete-btn { opacity: 0; transition: opacity 0.2s; }
+        .todo-item:hover .todo-delete-btn { opacity: 1; }
+    </style>
+</head>
+<body>
+    <div class="doing-container">
+        <header class="cornell-header">
+            <div class="cornell-title-group">
+                <h1>Focus List</h1>
+                <p class="cornell-date">2026-02-16</p>
+            </div>
+            <div><a href="../index.html" class="back-btn">← 返回</a></div>
+        </header>
+        
+        <div class="cornell-body">
+            <main class="cornell-right">
+                <div class="todo-list" id="todo-list">
+                    <!-- 示例数据 -->
+                    <div class="todo-item priority-urgent">
+                        <div class="todo-checkbox-wrapper"><input type="checkbox" class="todo-checkbox"></div>
+                        <div class="todo-text">完成 Diary App 的 UI 重新设计</div>
+                        <input type="text" class="todo-remark" value="2h" readonly>
+                        <button class="todo-delete-btn">×</button>
+                    </div>
+                    <div class="todo-item priority-deep">
+                        <div class="todo-checkbox-wrapper"><input type="checkbox" class="todo-checkbox"></div>
+                        <div class="todo-text">深度阅读技术文档</div>
+                        <input type="text" class="todo-remark" value="45min" readonly>
+                        <button class="todo-delete-btn">×</button>
+                    </div>
+                    <div class="todo-item priority-normal">
+                        <div class="todo-checkbox-wrapper"><input type="checkbox" class="todo-checkbox"></div>
+                        <div class="todo-text">整理本周工作计划</div>
+                        <input type="text" class="todo-remark" value="" readonly>
+                        <button class="todo-delete-btn">×</button>
+                    </div>
+                    <div class="todo-item priority-normal completed">
+                        <div class="todo-checkbox-wrapper"><input type="checkbox" class="todo-checkbox" checked></div>
+                        <div class="todo-text">回复邮件</div>
+                        <input type="text" class="todo-remark" value="Done" readonly>
+                        <button class="todo-delete-btn">×</button>
+                    </div>
+                </div>
+                
+                <div class="add-task-bar">
+                    <div class="input-row">
+                        <input type="text" class="task-input" placeholder="添加新任务...">
+                        <button class="btn-add">+</button>
+                    </div>
+                    <div class="options-row" style="margin-top:10px; display:flex; gap:15px; font-size:0.9rem; color:#666;">
+                        <label class="p-radio"><input type="radio" name="priority" checked> <span class="p-dot" style="background:var(--accent-color)"></span> 普通</label>
+                        <label class="p-radio"><input type="radio" name="priority"> <span class="p-dot" style="background:var(--danger-color)"></span> 紧急</label>
+                        <label class="p-radio"><input type="radio" name="priority"> <span class="p-dot" style="background:var(--purple-color)"></span> 深度</label>
+                    </div>
+                </div>
+            </main>
+        </div>
+        
+        <footer class="cornell-footer">
+            <div class="progress-section">
+                <div class="progress-bar-bg"><div class="progress-fill" style="width: 25%"></div></div>
+            </div>
+        </footer>
+    </div>
+</body>
+</html>

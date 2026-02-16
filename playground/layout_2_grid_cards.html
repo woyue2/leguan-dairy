@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Write Doing - 布局方案 2 (网格卡片)</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <style>
+        :root { --accent-color: #4a90d9; --text-color: #2c3e50; --danger-color: #ff6b6b; --purple-color: #5f27cd; }
+        
+        body { background-color: #f5f7fa; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+        .doing-container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+        
+        .cornell-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; }
+        .cornell-title-group h1 { font-size: 2rem; color: var(--text-color); margin: 0; }
+        .back-btn { text-decoration: none; color: #666; font-weight: bold; }
+        
+        /* 隐藏侧边栏 */
+        .cornell-left { display: none; }
+        
+        /* 核心网格布局 */
+        .cornell-right { width: 100%; padding: 0; }
+        .todo-list { 
+            display: grid; 
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); 
+            gap: 20px; 
+            padding-bottom: 100px; /* 底部留白给固定输入框 */
+        }
+        
+        /* 卡片样式 */
+        .todo-item { 
+            display: flex; 
+            flex-direction: column; 
+            background: white; 
+            padding: 20px; 
+            border-radius: 12px; 
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05); 
+            transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+            border-top: 4px solid var(--accent-color); /* 顶部颜色条区分优先级 */
+            border-left: none;
+            height: auto;
+            min-height: 120px;
+            position: relative;
+        }
+        
+        .todo-item:hover { transform: translateY(-5px); box-shadow: 0 10px 20px rgba(0,0,0,0.1); }
+        
+        /* 优先级颜色 */
+        .todo-item.priority-urgent { border-top-color: var(--danger-color); }
+        .todo-item.priority-deep { border-top-color: var(--purple-color); }
+        .todo-item.priority-normal { border-top-color: var(--accent-color); }
+        
+        /* 卡片内部布局 */
+        .card-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px; width: 100%; }
+        .todo-checkbox-wrapper { margin: 0; }
+        .todo-delete-btn { background: transparent; color: #999; border: none; font-size: 1.2rem; padding: 0; cursor: pointer; }
+        .todo-delete-btn:hover { color: var(--danger-color); background: transparent; transform: scale(1.1); }
+        
+        .todo-text { 
+            font-size: 1.1rem; 
+            font-weight: 500; 
+            color: #333; 
+            margin-bottom: 15px; 
+            line-height: 1.5; 
+            white-space: normal; /* 允许换行 */
+            overflow: visible;
+        }
+        
+        .card-footer { 
+            margin-top: auto; 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            border-top: 1px solid #eee; 
+            padding-top: 10px; 
+            width: 100%;
+        }
+        
+        .tag-badge { 
+            font-size: 0.75rem; 
+            padding: 4px 8px; 
+            border-radius: 4px; 
+            background: #f0f2f5; 
+            color: #666; 
+        }
+        
+        .todo-remark { 
+            border: none; 
+            text-align: right; 
+            font-size: 0.8rem; 
+            color: #999; 
+            background: transparent;
+        }
+        
+        /* 底部固定添加栏 */
+        .add-task-bar { 
+            position: fixed; 
+            bottom: 30px; 
+            left: 50%; 
+            transform: translateX(-50%); 
+            width: 90%; 
+            max-width: 600px; 
+            background: rgba(255,255,255,0.95); 
+            backdrop-filter: blur(10px);
+            padding: 15px 25px; 
+            border-radius: 50px; 
+            box-shadow: 0 10px 40px rgba(0,0,0,0.15); 
+            z-index: 100;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        .task-input { border: none; background: transparent; font-size: 1rem; flex: 1; outline: none; }
+        .btn-add { 
+            width: 40px; height: 40px; border-radius: 50%; 
+            background: var(--accent-color); color: white; border: none; 
+            font-size: 1.5rem; cursor: pointer; display: flex; align-items: center; justify-content: center; 
+            box-shadow: 0 4px 10px rgba(74, 144, 217, 0.4);
+        }
+        .btn-add:hover { transform: scale(1.1); background: #357abd; }
+        
+        /* 响应式 */
+        @media (max-width: 600px) {
+            .todo-list { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <div class="doing-container">
+        <header class="cornell-header">
+            <div class="cornell-title-group">
+                <h1>Card Grid View</h1>
+                <p style="color:#999; margin-top:5px;">2026-02-16 • 6 Tasks Pending</p>
+            </div>
+            <a href="../index.html" class="back-btn">← Back</a>
+        </header>
+        
+        <main class="cornell-right">
+            <div class="todo-list">
+                <!-- 卡片 1 -->
+                <div class="todo-item priority-urgent">
+                    <div class="card-header">
+                        <div class="todo-checkbox-wrapper"><input type="checkbox" class="todo-checkbox"></div>
+                        <button class="todo-delete-btn">×</button>
+                    </div>
+                    <div class="todo-text">Critical Bug Fix: Login API timeout</div>
+                    <div class="card-footer">
+                        <span class="tag-badge" style="color:#ff6b6b; background:#fff0f0">Urgent</span>
+                        <input type="text" class="todo-remark" value="Today" readonly>
+                    </div>
+                </div>
+                
+                <!-- 卡片 2 -->
+                <div class="todo-item priority-deep">
+                    <div class="card-header">
+                        <div class="todo-checkbox-wrapper"><input type="checkbox" class="todo-checkbox"></div>
+                        <button class="todo-delete-btn">×</button>
+                    </div>
+                    <div class="todo-text">Design System Documentation & Review</div>
+                    <div class="card-footer">
+                        <span class="tag-badge" style="color:#5f27cd; background:#f0e6ff">Deep Work</span>
+                        <input type="text" class="todo-remark" value="2h" readonly>
+                    </div>
+                </div>
+                
+                <!-- 卡片 3 -->
+                <div class="todo-item priority-normal">
+                    <div class="card-header">
+                        <div class="todo-checkbox-wrapper"><input type="checkbox" class="todo-checkbox"></div>
+                        <button class="todo-delete-btn">×</button>
+                    </div>
+                    <div class="todo-text">Update team meeting notes</div>
+                    <div class="card-footer">
+                        <span class="tag-badge">Routine</span>
+                        <input type="text" class="todo-remark" value="30m" readonly>
+                    </div>
+                </div>
+
+                 <!-- 卡片 4 -->
+                 <div class="todo-item priority-normal">
+                    <div class="card-header">
+                        <div class="todo-checkbox-wrapper"><input type="checkbox" class="todo-checkbox"></div>
+                        <button class="todo-delete-btn">×</button>
+                    </div>
+                    <div class="todo-text">Email marketing campaign draft</div>
+                    <div class="card-footer">
+                        <span class="tag-badge">Marketing</span>
+                        <input type="text" class="todo-remark" value="" readonly>
+                    </div>
+                </div>
+
+                 <!-- 卡片 5 -->
+                 <div class="todo-item priority-normal">
+                    <div class="card-header">
+                        <div class="todo-checkbox-wrapper"><input type="checkbox" class="todo-checkbox"></div>
+                        <button class="todo-delete-btn">×</button>
+                    </div>
+                    <div class="todo-text">Review PR #452</div>
+                    <div class="card-footer">
+                        <span class="tag-badge">Dev</span>
+                        <input type="text" class="todo-remark" value="" readonly>
+                    </div>
+                </div>
+            </div>
+        </main>
+        
+        <div class="add-task-bar">
+            <input type="text" class="task-input" placeholder="Add a new task...">
+            <div style="display:flex; gap:10px; margin-right:15px;">
+                <span class="p-dot" style="background:var(--accent-color)"></span>
+                <span class="p-dot" style="background:var(--danger-color)"></span>
+            </div>
+            <button class="btn-add">+</button>
+        </div>
+    </div>
+</body>
+</html>
