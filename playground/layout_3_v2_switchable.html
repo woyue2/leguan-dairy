@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Write Doing - 布局方案 3.2 (动态视图切换)</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <style>
+        :root { --accent-color: #4a90d9; --text-color: #2c3e50; --bg-color: #f5f7fa; }
+        
+        body { background-color: var(--bg-color); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; overflow: hidden; margin: 0; }
+        .doing-container { display: flex; flex-direction: column; height: 100vh; padding: 20px; box-sizing: border-box; max-width: 100%; margin: 0 auto; }
+        
+        /* 顶部布局 */
+        .cornell-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-shrink: 0; }
+        .cornell-title-group { display: flex; align-items: center; gap: 20px; }
+        .cornell-title-group h1 { margin: 0; font-size: 1.5rem; color: var(--text-color); }
+        .back-btn { text-decoration: none; color: #666; font-weight: bold; padding: 8px 16px; border-radius: 20px; transition: background 0.2s; }
+        .back-btn:hover { background: #eef1f5; }
+
+        /* 视图切换器 */
+        .view-switcher {
+            background: #eef1f5;
+            border-radius: 8px;
+            padding: 4px;
+            display: flex;
+            gap: 4px;
+        }
+        .view-btn {
+            border: none;
+            background: transparent;
+            padding: 6px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            color: #666;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+        .view-btn.active {
+            background: white;
+            color: var(--accent-color);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        .view-btn:hover:not(.active) {
+            background: rgba(255,255,255,0.5);
+        }
+        
+        /* 看板容器 */
+        .cornell-right { 
+            width: 100%; 
+            height: 100%; 
+            padding: 0; 
+            display: flex; 
+            gap: 20px; 
+            overflow-x: auto; /* 关键：允许横向滚动 */
+            padding-bottom: 20px; /* 滚动条不遮挡底部内容 */
+            align-items: flex-start; /* 确保列顶部对齐 */
+        }
+        
+        /* 自定义滚动条样式 */
+        .cornell-right::-webkit-scrollbar { height: 10px; }
+        .cornell-right::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 5px; }
+        .cornell-right::-webkit-scrollbar-thumb { background: #c1c1c1; border-radius: 5px; }
+        .cornell-right::-webkit-scrollbar-thumb:hover { background: #a8a8a8; }
+
+        .kanban-column {
+            flex: 0 0 320px; /* 固定宽度，不伸缩 */
+            background: #eef1f5;
+            border-radius: 12px;
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            max-height: 100%; /* 防止列无限长 */
+        }
+        
+        .column-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            padding: 0 5px;
+            flex-shrink: 0;
+        }
+        
+        .column-title { font-weight: bold; color: #555; font-size: 1rem; text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center; gap: 8px; }
+        .column-icon { font-size: 1.2rem; }
+        .column-count { background: rgba(0,0,0,0.05); padding: 2px 8px; border-radius: 10px; font-size: 0.8rem; color: #666; font-weight: bold; }
+        
+        .kanban-list {
+            flex: 1;
+            overflow-y: auto;
+            padding-right: 5px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            min-height: 50px; /* 拖拽空区域 */
+        }
+
+        /* 任务卡片样式 */
+        .todo-item {
+            background: white;
+            padding: 12px 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.03);
+            border-left: 4px solid var(--accent-color);
+            cursor: grab;
+            transition: transform 0.2s, box-shadow 0.2s;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+        
+        .todo-item:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+        .todo-item:active { cursor: grabbing; }
+        
+        .item-header { display: flex; justify-content: space-between; align-items: flex-start; }
+        .todo-text { font-size: 0.95rem; color: #333; line-height: 1.4; margin: 0; font-weight: 500; }
+        
+        .item-tags { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 4px; }
+        .tag-pill { font-size: 0.7rem; padding: 2px 6px; border-radius: 4px; background: #f0f2f5; color: #666; }
+        
+        .item-footer { display: flex; justify-content: space-between; align-items: center; margin-top: 4px; font-size: 0.75rem; color: #999; }
+        
+        /* 状态颜色 */
+        .status-todo .todo-item { border-left-color: #bdc3c7; }
+        .status-doing .todo-item { border-left-color: #4a90d9; }
+        .status-done .todo-item { border-left-color: #2ecc71; opacity: 0.7; }
+        .status-done .todo-text { text-decoration: line-through; color: #888; }
+        
+        /* 添加按钮 */
+        .add-card-btn {
+            margin-top: 10px;
+            padding: 8px;
+            background: transparent;
+            border: 2px dashed #cbd5e0;
+            border-radius: 6px;
+            color: #718096;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-align: center;
+            font-size: 0.9rem;
+            flex-shrink: 0;
+        }
+        .add-card-btn:hover { border-color: var(--accent-color); color: var(--accent-color); background: rgba(74, 144, 217, 0.05); }
+
+        /* 隐藏类 */
+        .hidden { display: none !important; }
+
+    </style>
+</head>
+<body>
+    <div class="doing-container">
+        <header class="cornell-header">
+            <div class="cornell-title-group">
+                <h1>Task Board</h1>
+                <div class="view-switcher">
+                    <button class="view-btn active" onclick="switchView('status')">按状态 (Status)</button>
+                    <button class="view-btn" onclick="switchView('context')">按分类 (Context)</button>
+                </div>
+            </div>
+            <a href="../index.html" class="back-btn">← Back</a>
+        </header>
+        
+        <!-- View 1: Status Based (默认显示) -->
+        <main class="cornell-right" id="view-status">
+            <!-- Column: To Do -->
+            <div class="kanban-column status-todo">
+                <div class="column-header">
+                    <span class="column-title"><span class="column-icon">📋</span> To Do</span>
+                    <span class="column-count">3</span>
+                </div>
+                <div class="kanban-list">
+                    <div class="todo-item">
+                        <div class="item-header"><div class="todo-text">Write Documentation</div></div>
+                        <div class="item-tags"><span class="tag-pill">Deep Work</span></div>
+                        <div class="item-footer"><span>2h</span></div>
+                    </div>
+                    <div class="todo-item">
+                        <div class="item-header"><div class="todo-text">Plan Q3 Roadmap</div></div>
+                        <div class="item-tags"><span class="tag-pill">Strategy</span></div>
+                        <div class="item-footer"><span>Today</span></div>
+                    </div>
+                    <div class="todo-item">
+                        <div class="item-header"><div class="todo-text">Update Dependencies</div></div>
+                        <div class="item-tags"><span class="tag-pill">Maintenance</span></div>
+                        <div class="item-footer"><span>Low</span></div>
+                    </div>
+                </div>
+                <button class="add-card-btn">+ Add Task</button>
+            </div>
+            
+            <!-- Column: Doing -->
+            <div class="kanban-column status-doing">
+                <div class="column-header">
+                    <span class="column-title" style="color:var(--accent-color)"><span class="column-icon">🔥</span> In Progress</span>
+                    <span class="column-count">2</span>
+                </div>
+                <div class="kanban-list">
+                    <div class="todo-item">
+                        <div class="item-header"><div class="todo-text">Fix Login Bug</div></div>
+                        <div class="item-tags"><span class="tag-pill" style="background:#fff0f0; color:#ff6b6b">Urgent</span></div>
+                        <div class="item-footer"><span>Now</span></div>
+                    </div>
+                    <div class="todo-item">
+                        <div class="item-header"><div class="todo-text">Redesign Task UI</div></div>
+                        <div class="item-tags"><span class="tag-pill">UI/UX</span></div>
+                        <div class="item-footer"><span>Active</span></div>
+                    </div>
+                </div>
+                <button class="add-card-btn">+ Add Task</button>
+            </div>
+            
+            <!-- Column: Done -->
+            <div class="kanban-column status-done">
+                <div class="column-header">
+                    <span class="column-title" style="color:#2ecc71"><span class="column-icon">✅</span> Completed</span>
+                    <span class="column-count">2</span>
+                </div>
+                <div class="kanban-list">
+                    <div class="todo-item">
+                        <div class="item-header"><div class="todo-text">Morning Standup</div></div>
+                        <div class="item-footer"><span>9:00 AM</span></div>
+                    </div>
+                    <div class="todo-item">
+                        <div class="item-header"><div class="todo-text">Check Emails</div></div>
+                        <div class="item-footer"><span>Done</span></div>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- View 2: Context Based (隐藏) -->
+        <main class="cornell-right hidden" id="view-context">
+            <!-- Col 1: Urgent -->
+            <div class="kanban-column">
+                <div class="column-header">
+                    <span class="column-title" style="color:#ff6b6b"><span class="column-icon">🚨</span> Urgent</span>
+                    <span class="column-count">1</span>
+                </div>
+                <div class="kanban-list">
+                    <div class="todo-item" style="border-left-color:#ff6b6b">
+                        <div class="item-header"><div class="todo-text">Fix Login Bug</div></div>
+                        <div class="item-footer"><span>Doing</span></div>
+                    </div>
+                </div>
+                <button class="add-card-btn">+ Add Task</button>
+            </div>
+
+            <!-- Col 2: Deep Work -->
+            <div class="kanban-column">
+                <div class="column-header">
+                    <span class="column-title" style="color:#5f27cd"><span class="column-icon">🧠</span> Deep Work</span>
+                    <span class="column-count">2</span>
+                </div>
+                <div class="kanban-list">
+                    <div class="todo-item" style="border-left-color:#5f27cd">
+                        <div class="item-header"><div class="todo-text">Write Documentation</div></div>
+                        <div class="item-footer"><span>Todo</span></div>
+                    </div>
+                    <div class="todo-item" style="border-left-color:#5f27cd">
+                        <div class="item-header"><div class="todo-text">Refactor Core API</div></div>
+                        <div class="item-footer"><span>Backlog</span></div>
+                    </div>
+                </div>
+                <button class="add-card-btn">+ Add Task</button>
+            </div>
+
+            <!-- Col 3: Routine/Chores -->
+            <div class="kanban-column">
+                <div class="column-header">
+                    <span class="column-title" style="color:#f39c12"><span class="column-icon">🧹</span> Routine</span>
+                    <span class="column-count">3</span>
+                </div>
+                <div class="kanban-list">
+                    <div class="todo-item" style="border-left-color:#f39c12">
+                        <div class="item-header"><div class="todo-text">Check Emails</div></div>
+                        <div class="item-footer"><span>Done</span></div>
+                    </div>
+                     <div class="todo-item" style="border-left-color:#f39c12">
+                        <div class="item-header"><div class="todo-text">Weekly Sync</div></div>
+                        <div class="item-footer"><span>Todo</span></div>
+                    </div>
+                </div>
+                <button class="add-card-btn">+ Add Task</button>
+            </div>
+
+            <!-- Col 4: Family -->
+            <div class="kanban-column">
+                <div class="column-header">
+                    <span class="column-title" style="color:#2ecc71"><span class="column-icon">🏠</span> Family</span>
+                    <span class="column-count">1</span>
+                </div>
+                <div class="kanban-list">
+                    <div class="todo-item" style="border-left-color:#2ecc71">
+                        <div class="item-header"><div class="todo-text">Call Mom</div></div>
+                        <div class="item-footer"><span>Todo</span></div>
+                    </div>
+                </div>
+                <button class="add-card-btn">+ Add Task</button>
+            </div>
+
+            <!-- Col 5: Ideas (Demonstrating horizontal scroll) -->
+            <div class="kanban-column">
+                <div class="column-header">
+                    <span class="column-title" style="color:#3498db"><span class="column-icon">💡</span> Ideas</span>
+                    <span class="column-count">2</span>
+                </div>
+                <div class="kanban-list">
+                    <div class="todo-item" style="border-left-color:#3498db">
+                        <div class="item-header"><div class="todo-text">AI Integration</div></div>
+                        <div class="item-footer"><span>Draft</span></div>
+                    </div>
+                     <div class="todo-item" style="border-left-color:#3498db">
+                        <div class="item-header"><div class="todo-text">New Theme Colors</div></div>
+                        <div class="item-footer"><span>Draft</span></div>
+                    </div>
+                </div>
+                <button class="add-card-btn">+ Add Task</button>
+            </div>
+            
+            <!-- Col 6: Health -->
+            <div class="kanban-column">
+                <div class="column-header">
+                    <span class="column-title" style="color:#e74c3c"><span class="column-icon">❤️</span> Health</span>
+                    <span class="column-count">1</span>
+                </div>
+                <div class="kanban-list">
+                    <div class="todo-item" style="border-left-color:#e74c3c">
+                        <div class="item-header"><div class="todo-text">Gym Workout</div></div>
+                        <div class="item-footer"><span>Todo</span></div>
+                    </div>
+                </div>
+                <button class="add-card-btn">+ Add Task</button>
+            </div>
+
+        </main>
+    </div>
+
+    <script>
+        function switchView(viewName) {
+            // Update buttons
+            document.querySelectorAll('.view-btn').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+            
+            // Toggle views
+            const statusView = document.getElementById('view-status');
+            const contextView = document.getElementById('view-context');
+            
+            if (viewName === 'status') {
+                statusView.classList.remove('hidden');
+                contextView.classList.add('hidden');
+            } else {
+                statusView.classList.add('hidden');
+                contextView.classList.remove('hidden');
+            }
+        }
+    </script>
+</body>
+</html>

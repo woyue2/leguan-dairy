@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Write Doing - 布局方案 5 (菜单驱动/移动端优化)</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <style>
+        :root { --accent-color: #4a90d9; --text-color: #2c3e50; --bg-color: #f5f7fa; }
+        
+        body { background-color: var(--bg-color); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; overflow: hidden; margin: 0; }
+        .doing-container { display: flex; flex-direction: column; height: 100vh; padding: 20px; box-sizing: border-box; max-width: 100%; margin: 0 auto; }
+        
+        .cornell-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-shrink: 0; }
+        .cornell-title-group h1 { margin: 0; font-size: 1.5rem; color: var(--text-color); }
+        .back-btn { text-decoration: none; color: #666; font-weight: bold; padding: 8px 16px; border-radius: 20px; background: #eef1f5; }
+
+        /* 看板容器 */
+        .cornell-right { 
+            width: 100%; 
+            height: 100%; 
+            padding: 0; 
+            display: flex; 
+            gap: 15px; 
+            overflow-x: auto; 
+            padding-bottom: 20px;
+        }
+
+        .kanban-column {
+            flex: 0 0 280px;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            max-height: 100%;
+            border-top: 5px solid var(--accent-color);
+        }
+        
+        .column-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .column-title { font-weight: bold; color: #333; font-size: 1rem; }
+        .column-actions-btn { background: none; border: none; font-size: 1.2rem; cursor: pointer; color: #999; padding: 0 5px; }
+        .column-actions-btn:hover { color: #333; }
+
+        .kanban-list {
+            flex: 1;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        /* 任务卡片 */
+        .todo-item {
+            background: #f9f9f9;
+            padding: 12px;
+            border-radius: 8px;
+            border: 1px solid #eee;
+            position: relative;
+        }
+        
+        .todo-item:hover { background: #f0f4f8; border-color: #dbe4ef; }
+        
+        .item-header { display: flex; justify-content: space-between; align-items: flex-start; }
+        .todo-text { font-size: 0.95rem; color: #333; line-height: 1.4; margin-right: 25px; }
+        
+        /* 菜单按钮 */
+        .item-menu-btn {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            background: transparent;
+            border: none;
+            color: #999;
+            font-size: 1.2rem;
+            cursor: pointer;
+            padding: 0 5px;
+            border-radius: 4px;
+        }
+        .item-menu-btn:hover { background: #e0e0e0; color: #333; }
+
+        /* 弹出菜单 (Dropdown) */
+        .dropdown-menu {
+            position: absolute;
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            z-index: 1000;
+            min-width: 150px;
+            display: none;
+        }
+        .dropdown-item {
+            padding: 10px 15px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            color: #333;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .dropdown-item:hover { background: #f5f5f5; }
+        .dropdown-item.danger { color: #ff4757; }
+        .dropdown-item.danger:hover { background: #fff0f0; }
+
+        /* 底部操作栏 */
+        .bottom-actions {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .fab-btn {
+            width: 56px; height: 56px; border-radius: 50%;
+            background: var(--accent-color); color: white;
+            border: none; font-size: 24px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+            cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            transition: transform 0.2s;
+        }
+        .fab-btn:hover { transform: scale(1.1); }
+        .fab-secondary { width: 48px; height: 48px; background: white; color: #555; font-size: 20px; }
+
+    </style>
+</head>
+<body>
+    <div class="doing-container">
+        <header class="cornell-header">
+            <div class="cornell-title-group">
+                <h1>Mobile/Menu Kanban</h1>
+            </div>
+            <a href="../index.html" class="back-btn">← Back</a>
+        </header>
+        
+        <main class="cornell-right">
+            <!-- Col 1 -->
+            <div class="kanban-column" id="col-todo">
+                <div class="column-header">
+                    <span class="column-title">To Do</span>
+                    <button class="column-actions-btn">⋮</button>
+                </div>
+                <div class="kanban-list">
+                    <div class="todo-item" id="task-1">
+                        <div class="item-header">
+                            <div class="todo-text">Review PR #102</div>
+                            <button class="item-menu-btn" onclick="toggleMenu(event, 'task-1')">⋮</button>
+                        </div>
+                    </div>
+                    <div class="todo-item" id="task-2">
+                        <div class="item-header">
+                            <div class="todo-text">Update documentation</div>
+                            <button class="item-menu-btn" onclick="toggleMenu(event, 'task-2')">⋮</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Col 2 -->
+            <div class="kanban-column" id="col-doing" style="border-top-color: #ff6b6b">
+                <div class="column-header">
+                    <span class="column-title">Doing</span>
+                    <button class="column-actions-btn">⋮</button>
+                </div>
+                <div class="kanban-list">
+                    <div class="todo-item" id="task-3">
+                        <div class="item-header">
+                            <div class="todo-text">Fix Login Bug</div>
+                            <button class="item-menu-btn" onclick="toggleMenu(event, 'task-3')">⋮</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Col 3 -->
+            <div class="kanban-column" id="col-done" style="border-top-color: #2ecc71">
+                <div class="column-header">
+                    <span class="column-title">Done</span>
+                    <button class="column-actions-btn">⋮</button>
+                </div>
+                <div class="kanban-list">
+                    <div class="todo-item" id="task-4">
+                        <div class="item-header">
+                            <div class="todo-text">Morning Standup</div>
+                            <button class="item-menu-btn" onclick="toggleMenu(event, 'task-4')">⋮</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- Floating Action Button -->
+        <div class="bottom-actions">
+            <button class="fab-btn fab-secondary" title="Add Column" onclick="alert('Add Column Clicked')">≣</button>
+            <button class="fab-btn" title="Add Task" onclick="alert('Add Task Clicked')">+</button>
+        </div>
+    </div>
+
+    <!-- Context Menu -->
+    <div id="context-menu" class="dropdown-menu">
+        <div class="dropdown-item" onclick="moveTask('todo')">→ Move to To Do</div>
+        <div class="dropdown-item" onclick="moveTask('doing')">→ Move to Doing</div>
+        <div class="dropdown-item" onclick="moveTask('done')">→ Move to Done</div>
+        <div style="height:1px; background:#eee; margin:5px 0;"></div>
+        <div class="dropdown-item">✎ Edit</div>
+        <div class="dropdown-item danger">🗑 Delete</div>
+    </div>
+
+    <script>
+        const menu = document.getElementById('context-menu');
+        let currentTaskId = null;
+
+        function toggleMenu(e, taskId) {
+            e.stopPropagation();
+            currentTaskId = taskId;
+            
+            // Position menu near the button
+            const rect = e.target.getBoundingClientRect();
+            menu.style.top = (rect.bottom + window.scrollY) + 'px';
+            menu.style.left = (rect.left - 100 + window.scrollX) + 'px'; // Shift left a bit
+            menu.style.display = 'block';
+        }
+
+        function moveTask(targetColId) {
+            if (currentTaskId) {
+                const task = document.getElementById(currentTaskId);
+                const targetList = document.querySelector(`#col-${targetColId} .kanban-list`);
+                if (targetList) {
+                    targetList.appendChild(task);
+                }
+            }
+            menu.style.display = 'none';
+        }
+
+        // Close menu on click outside
+        window.onclick = function() {
+            menu.style.display = 'none';
+        }
+    </script>
+</body>
+</html>

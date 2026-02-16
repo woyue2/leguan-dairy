@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Write Doing - 布局方案 3.2 (多列横向滚动演示)</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <style>
+        :root { --accent-color: #4a90d9; --text-color: #2c3e50; --bg-color: #f5f7fa; }
+        
+        body { background-color: var(--bg-color); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; overflow: hidden; margin: 0; }
+        .doing-container { display: flex; flex-direction: column; height: 100vh; padding: 20px; box-sizing: border-box; max-width: 100%; margin: 0 auto; }
+        
+        .cornell-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-shrink: 0; }
+        .cornell-title-group h1 { margin: 0; font-size: 1.5rem; color: var(--text-color); }
+        .back-btn { text-decoration: none; color: #666; font-weight: bold; }
+        
+        /* 看板容器 - 强制横向滚动 */
+        .cornell-right { 
+            width: 100%; 
+            height: 100%; 
+            padding: 0; 
+            display: flex; 
+            gap: 15px; 
+            overflow-x: auto; 
+            overflow-y: hidden;
+            padding-bottom: 10px;
+        }
+        
+        /* 自定义滚动条 */
+        .cornell-right::-webkit-scrollbar { height: 8px; }
+        .cornell-right::-webkit-scrollbar-track { background: #e0e0e0; border-radius: 4px; }
+        .cornell-right::-webkit-scrollbar-thumb { background: #bbb; border-radius: 4px; }
+        .cornell-right::-webkit-scrollbar-thumb:hover { background: #999; }
+
+        .kanban-column {
+            flex: 0 0 280px; /* 固定宽度 */
+            background: #eef1f5;
+            border-radius: 10px;
+            padding: 12px;
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            border-top: 4px solid transparent; /* 顶部彩色条预留 */
+        }
+        
+        .column-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+            padding: 0 4px;
+        }
+        
+        .column-title { font-weight: bold; color: #444; font-size: 0.95rem; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .column-count { background: rgba(255,255,255,0.6); padding: 2px 8px; border-radius: 10px; font-size: 0.8rem; color: #666; min-width: 20px; text-align: center; }
+        
+        .kanban-list {
+            flex: 1;
+            overflow-y: auto;
+            padding-right: 4px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        
+        /* 任务卡片 - 更紧凑 */
+        .todo-item {
+            background: white;
+            padding: 10px 12px;
+            border-radius: 6px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            cursor: grab;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            border-left: 3px solid #ccc;
+        }
+        
+        .todo-item:hover { transform: translateY(-1px); box-shadow: 0 4px 8px rgba(0,0,0,0.08); }
+        
+        .todo-text { font-size: 0.9rem; color: #333; line-height: 1.3; font-weight: 500; }
+        .item-footer { display: flex; justify-content: space-between; font-size: 0.75rem; color: #999; margin-top: 4px; }
+
+        .add-card-btn {
+            margin-top: 8px;
+            padding: 8px;
+            border: 1px dashed #cbd5e0;
+            border-radius: 6px;
+            color: #718096;
+            cursor: pointer;
+            text-align: center;
+            font-size: 0.85rem;
+            background: rgba(255,255,255,0.3);
+        }
+        .add-card-btn:hover { background: rgba(255,255,255,0.8); color: var(--accent-color); border-color: var(--accent-color); }
+    </style>
+</head>
+<body>
+    <div class="doing-container">
+        <header class="cornell-header">
+            <div class="cornell-title-group">
+                <h1>All Projects Overview</h1>
+                <span style="font-size:0.9rem; color:#666; margin-left:15px;">(Scroll right to see more →)</span>
+            </div>
+            <a href="../index.html" class="back-btn">← Back</a>
+        </header>
+        
+        <main class="cornell-right">
+            <!-- Col 1 -->
+            <div class="kanban-column" style="border-top-color: #ff6b6b">
+                <div class="column-header">
+                    <span class="column-title">🔥 Urgent</span>
+                    <span class="column-count">3</span>
+                </div>
+                <div class="kanban-list">
+                    <div class="todo-item" style="border-left-color:#ff6b6b"><div class="todo-text">Server Downtime Fix</div><div class="item-footer"><span>Infra</span><span>Now</span></div></div>
+                    <div class="todo-item" style="border-left-color:#ff6b6b"><div class="todo-text">Client Call Prep</div><div class="item-footer"><span>Sales</span><span>1h</span></div></div>
+                    <div class="todo-item" style="border-left-color:#ff6b6b"><div class="todo-text">Tax Filing</div><div class="item-footer"><span>Admin</span><span>Today</span></div></div>
+                </div>
+                <button class="add-card-btn">+</button>
+            </div>
+            
+            <!-- Col 2 -->
+            <div class="kanban-column" style="border-top-color: #5f27cd">
+                <div class="column-header">
+                    <span class="column-title">🧠 Deep Work</span>
+                    <span class="column-count">2</span>
+                </div>
+                <div class="kanban-list">
+                    <div class="todo-item" style="border-left-color:#5f27cd"><div class="todo-text">Write Technical Spec</div><div class="item-footer"><span>Dev</span><span>2h</span></div></div>
+                    <div class="todo-item" style="border-left-color:#5f27cd"><div class="todo-text">Learning Rust</div><div class="item-footer"><span>Study</span><span>1h</span></div></div>
+                </div>
+                <button class="add-card-btn">+</button>
+            </div>
+
+            <!-- Col 3 -->
+            <div class="kanban-column" style="border-top-color: #4a90d9">
+                <div class="column-header">
+                    <span class="column-title">💻 Development</span>
+                    <span class="column-count">4</span>
+                </div>
+                <div class="kanban-list">
+                    <div class="todo-item"><div class="todo-text">Refactor CSS</div><div class="item-footer"><span>FE</span></div></div>
+                    <div class="todo-item"><div class="todo-text">API Integration</div><div class="item-footer"><span>BE</span></div></div>
+                    <div class="todo-item"><div class="todo-text">Unit Tests</div><div class="item-footer"><span>QA</span></div></div>
+                    <div class="todo-item"><div class="todo-text">Deploy to Staging</div><div class="item-footer"><span>Ops</span></div></div>
+                </div>
+                <button class="add-card-btn">+</button>
+            </div>
+
+            <!-- Col 4 -->
+            <div class="kanban-column" style="border-top-color: #2ecc71">
+                <div class="column-header">
+                    <span class="column-title">🏠 Personal</span>
+                    <span class="column-count">2</span>
+                </div>
+                <div class="kanban-list">
+                    <div class="todo-item" style="border-left-color:#2ecc71"><div class="todo-text">Grocery Shopping</div><div class="item-footer"><span>Home</span></div></div>
+                    <div class="todo-item" style="border-left-color:#2ecc71"><div class="todo-text">Walk the dog</div><div class="item-footer"><span>Pet</span></div></div>
+                </div>
+                <button class="add-card-btn">+</button>
+            </div>
+
+            <!-- Col 5 -->
+            <div class="kanban-column" style="border-top-color: #f1c40f">
+                <div class="column-header">
+                    <span class="column-title">💡 Ideas / Backlog</span>
+                    <span class="column-count">3</span>
+                </div>
+                <div class="kanban-list">
+                    <div class="todo-item"><div class="todo-text">AI Assistant Feature</div></div>
+                    <div class="todo-item"><div class="todo-text">Dark Mode V2</div></div>
+                    <div class="todo-item"><div class="todo-text">Mobile App Flutter</div></div>
+                </div>
+                <button class="add-card-btn">+</button>
+            </div>
+
+            <!-- Col 6 -->
+            <div class="kanban-column" style="border-top-color: #e67e22">
+                <div class="column-header">
+                    <span class="column-title">📚 Reading List</span>
+                    <span class="column-count">2</span>
+                </div>
+                <div class="kanban-list">
+                    <div class="todo-item"><div class="todo-text">Clean Code</div></div>
+                    <div class="todo-item"><div class="todo-text">The Pragmatic Programmer</div></div>
+                </div>
+                <button class="add-card-btn">+</button>
+            </div>
+
+            <!-- Col 7 -->
+            <div class="kanban-column" style="border-top-color: #95a5a6">
+                <div class="column-header">
+                    <span class="column-title">📂 Archive</span>
+                    <span class="column-count">0</span>
+                </div>
+                <div class="kanban-list">
+                    <!-- Empty state -->
+                    <div style="text-align:center; color:#999; margin-top:20px; font-size:0.8rem;">No items</div>
+                </div>
+            </div>
+        </main>
+    </div>
+</body>
+</html>

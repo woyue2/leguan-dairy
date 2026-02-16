@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Write Doing - 融合布局 (可编辑/视图切换/全功能)</title>
+    <!-- 引入 SortableJS -->
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.3/Sortable.min.js"></script>
+    <link rel="stylesheet" href="../css/style.css">
+    <style>
+        :root { --accent-color: #4a90d9; --text-color: #2c3e50; --bg-color: #f5f7fa; }
+        
+        body { background-color: var(--bg-color); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; overflow: hidden; margin: 0; }
+        .doing-container { display: flex; flex-direction: column; height: 100vh; padding: 20px; box-sizing: border-box; max-width: 100%; margin: 0 auto; }
+        
+        /* 顶部区域 */
+        .cornell-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-shrink: 0; }
+        .cornell-title-group { display: flex; align-items: center; gap: 20px; }
+        .cornell-title-group h1 { margin: 0; font-size: 1.5rem; color: var(--text-color); }
+        .back-btn { text-decoration: none; color: #666; font-weight: bold; padding: 8px 16px; border-radius: 20px; background: #eef1f5; transition: background 0.2s; }
+        .back-btn:hover { background: #dfe4ea; }
+
+        /* 视图切换器 */
+        .view-switcher { background: #eef1f5; border-radius: 8px; padding: 4px; display: flex; gap: 4px; }
+        .view-btn { border: none; background: transparent; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 0.9rem; color: #666; font-weight: 500; transition: all 0.2s; }
+        .view-btn.active { background: white; color: var(--accent-color); box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        
+        /* 看板主区域 */
+        .cornell-right { 
+            width: 100%; height: 100%; padding: 0; display: flex; gap: 15px; 
+            overflow-x: auto; padding-bottom: 20px; align-items: flex-start;
+        }
+        
+        /* 滚动条美化 */
+        .cornell-right::-webkit-scrollbar { height: 12px; }
+        .cornell-right::-webkit-scrollbar-track { background: #e0e0e0; border-radius: 6px; }
+        .cornell-right::-webkit-scrollbar-thumb { background: #bbb; border-radius: 6px; border: 3px solid #e0e0e0; }
+
+        /* 列样式 */
+        .kanban-column {
+            flex: 0 0 300px;
+            background: #ebecf0;
+            border-radius: 10px;
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+            max-height: 100%;
+            position: relative;
+        }
+        
+        /* 列标题可编辑 */
+        .column-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; padding: 8px 4px; cursor: pointer; }
+        .column-title-input {
+            background: transparent; border: 1px solid transparent; font-weight: 600; color: #172b4d; 
+            font-size: 0.95rem; width: 100%; padding: 4px; border-radius: 4px; cursor: text;
+        }
+        .column-title-input:hover { background: rgba(9, 30, 66, 0.04); }
+        .column-title-input:focus { background: white; border-color: var(--accent-color); outline: none; }
+
+        .col-menu-btn { background: transparent; border: none; color: #6b778c; padding: 4px; border-radius: 4px; cursor: pointer; font-size: 1.1rem; }
+        .col-menu-btn:hover { background: rgba(9, 30, 66, 0.08); color: #172b4d; }
+
+        /* 任务列表 */
+        .kanban-list {
+            flex: 1; overflow-y: auto; overflow-x: hidden; padding: 0 4px 4px 4px; 
+            display: flex; flex-direction: column; gap: 8px; min-height: 50px;
+        }
+
+        /* 任务卡片 */
+        .todo-item {
+            background: white; padding: 10px; border-radius: 6px; box-shadow: 0 1px 2px rgba(9, 30, 66, 0.25);
+            cursor: grab; position: relative; transition: all 0.2s;
+        }
+        .todo-item:hover { background: #f4f5f7; }
+        .todo-item.sortable-ghost { opacity: 0.4; background: #ddd; border: 2px dashed #999; }
+        
+        .item-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+        .todo-text { font-size: 0.95rem; color: #172b4d; line-height: 1.4; margin: 0; word-break: break-word; flex: 1; }
+        
+        /* 标签 */
+        .item-tags { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 8px; }
+        .tag-pill { font-size: 0.7rem; padding: 2px 6px; border-radius: 3px; font-weight: 600; cursor: pointer; }
+        .tag-pill:hover { opacity: 0.8; }
+        
+        /* 标签颜色定义 */
+        .tag-red { background: #ffbdad; color: #bf2600; }
+        .tag-blue { background: #deebff; color: #0747a6; }
+        .tag-green { background: #e3fcef; color: #006644; }
+        .tag-purple { background: #eae6ff; color: #403294; }
+
+        /* 任务操作按钮 */
+        .edit-btn { opacity: 0; background: none; border: none; cursor: pointer; color: #666; font-size: 0.9rem; padding: 2px; }
+        .todo-item:hover .edit-btn { opacity: 1; }
+        .edit-btn:hover { color: var(--accent-color); }
+
+        /* 添加按钮 */
+        .add-card-btn {
+            margin: 8px 4px; padding: 8px; background: transparent; border: none; border-radius: 4px;
+            color: #5e6c84; cursor: pointer; text-align: left; display: flex; align-items: center; gap: 6px;
+        }
+        .add-card-btn:hover { background: rgba(9, 30, 66, 0.08); color: #172b4d; }
+
+        /* 新增列按钮 */
+        .add-column-wrapper { flex: 0 0 300px; padding: 10px; }
+        .add-column-btn {
+            width: 100%; padding: 12px; background: rgba(255,255,255,0.5); border: 2px dashed #ccc;
+            border-radius: 10px; color: #666; cursor: pointer; font-size: 1rem; display: flex; align-items: center; justify-content: center;
+        }
+        .add-column-btn:hover { background: rgba(255,255,255,0.8); border-color: var(--accent-color); color: var(--accent-color); }
+
+        /* 模态框通用样式 */
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5); display: none; align-items: center; justify-content: center; z-index: 1000;
+        }
+        .modal-box {
+            background: white; padding: 20px; border-radius: 8px; width: 400px; max-width: 90%;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+        }
+        .modal-header { font-size: 1.2rem; font-weight: bold; margin-bottom: 15px; display: flex; justify-content: space-between; }
+        .modal-close { cursor: pointer; border: none; background: none; font-size: 1.5rem; color: #999; }
+        
+        .form-group { margin-bottom: 15px; }
+        .form-label { display: block; margin-bottom: 5px; font-size: 0.9rem; color: #666; }
+        .form-input { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; font-size: 1rem; }
+        .form-textarea { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; resize: vertical; min-height: 80px; font-family: inherit; }
+        
+        .tag-selector { display: flex; gap: 8px; margin-top: 5px; }
+        .tag-option { width: 24px; height: 24px; border-radius: 50%; cursor: pointer; border: 2px solid transparent; }
+        .tag-option.selected { border-color: #333; transform: scale(1.1); }
+        
+        .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
+        .btn-primary { background: var(--accent-color); color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; }
+        .btn-danger { background: #ff6b6b; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; }
+        .btn-secondary { background: #eee; color: #333; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; }
+
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+    <div class="doing-container">
+        <header class="cornell-header">
+            <div class="cornell-title-group">
+                <h1>Fusion Board</h1>
+                <div class="view-switcher">
+                    <button class="view-btn active" onclick="switchView('status')">Status View</button>
+                    <button class="view-btn" onclick="switchView('context')">Context View</button>
+                </div>
+            </div>
+            <a href="../index.html" class="back-btn">← Back</a>
+        </header>
+        
+        <!-- View Container -->
+        <main class="cornell-right" id="board-container">
+            <!-- 动态生成的内容区域 -->
+        </main>
+    </div>
+
+    <!-- 任务编辑/详情模态框 -->
+    <div id="modal-task-edit" class="modal-overlay">
+        <div class="modal-box">
+            <div class="modal-header">
+                <span>Edit Task</span>
+                <button class="modal-close" onclick="closeModals()">×</button>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Task Description</label>
+                <textarea class="form-textarea" id="edit-task-desc"></textarea>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Priority / Color</label>
+                <div class="tag-selector" id="edit-task-color">
+                    <div class="tag-option" style="background:#ffbdad" data-val="tag-red" onclick="selectColor(this)"></div>
+                    <div class="tag-option" style="background:#deebff" data-val="tag-blue" onclick="selectColor(this)"></div>
+                    <div class="tag-option" style="background:#e3fcef" data-val="tag-green" onclick="selectColor(this)"></div>
+                    <div class="tag-option" style="background:#eae6ff" data-val="tag-purple" onclick="selectColor(this)"></div>
+                    <div class="tag-option" style="background:#eee" data-val="" onclick="selectColor(this)"></div> <!-- No color -->
+                </div>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Tags (comma separated)</label>
+                <input type="text" class="form-input" id="edit-task-tags" placeholder="e.g. Design, Urgent">
+            </div>
+            <div class="modal-actions">
+                <button class="btn-danger" onclick="deleteCurrentTask()">Delete Task</button>
+                <button class="btn-secondary" onclick="closeModals()">Cancel</button>
+                <button class="btn-primary" onclick="saveTaskChanges()">Save Changes</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 模拟数据结构
+        const data = {
+            currentView: 'status',
+            views: {
+                status: [
+                    { id: 'col-1', title: 'To Do', tasks: [
+                        { id: 't1', text: 'Research competitors', color: 'tag-purple', tags: ['Strategy'] },
+                        { id: 't2', text: 'Draft sketches', color: 'tag-blue', tags: ['Design'] }
+                    ]},
+                    { id: 'col-2', title: 'In Progress', tasks: [
+                        { id: 't3', text: 'Fix navigation bug', color: 'tag-red', tags: ['Bug'] }
+                    ]},
+                    { id: 'col-3', title: 'Done', tasks: [] }
+                ],
+                context: [
+                    { id: 'ctx-1', title: 'Urgent', tasks: [{ id: 't3', text: 'Fix navigation bug', color: 'tag-red', tags: ['Bug'] }] },
+                    { id: 'ctx-2', title: 'Deep Work', tasks: [{ id: 't1', text: 'Research competitors', color: 'tag-purple', tags: ['Strategy'] }] },
+                    { id: 'ctx-3', title: 'Routine', tasks: [] }
+                ]
+            }
+        };
+
+        let currentEditingTaskId = null;
+        let currentEditingColumnId = null; // 用于追踪任务所属列
+
+        // 初始化渲染
+        function renderBoard() {
+            const container = document.getElementById('board-container');
+            container.innerHTML = '';
+            
+            const columns = data.views[data.currentView];
+            
+            columns.forEach(col => {
+                const colEl = document.createElement('div');
+                colEl.className = 'kanban-column';
+                colEl.dataset.colId = col.id;
+                
+                let tasksHtml = '';
+                col.tasks.forEach(task => {
+                    tasksHtml += createTaskHtml(task);
+                });
+
+                colEl.innerHTML = `
+                    <div class="column-header">
+                        <input type="text" class="column-title-input" value="${col.title}" onchange="updateColumnTitle('${col.id}', this.value)">
+                        <button class="col-menu-btn">•••</button>
+                    </div>
+                    <div class="kanban-list" id="list-${col.id}">
+                        ${tasksHtml}
+                    </div>
+                    <button class="add-card-btn" onclick="addNewTask('${col.id}')">+ Add a card</button>
+                `;
+                container.appendChild(colEl);
+
+                // Init Sortable
+                new Sortable(colEl.querySelector('.kanban-list'), {
+                    group: 'shared',
+                    animation: 150,
+                    ghostClass: 'sortable-ghost',
+                    onEnd: function (evt) {
+                        // 这里处理拖拽后的数据更新逻辑 (简化版)
+                        console.log('Moved', evt.item.dataset.taskId, 'to', evt.to.id);
+                    }
+                });
+            });
+
+            // 添加新列按钮
+            const addColBtn = document.createElement('div');
+            addColBtn.className = 'add-column-wrapper';
+            addColBtn.innerHTML = `
+                <button class="add-column-btn" onclick="addNewColumn()">
+                    <span>+ Add another list</span>
+                </button>
+            `;
+            container.appendChild(addColBtn);
+        }
+
+        function createTaskHtml(task) {
+            const tagsHtml = task.tags && task.tags.length ? 
+                `<div class="item-tags">${task.tags.map(t => `<span class="tag-pill ${task.color || ''}">${t}</span>`).join('')}</div>` : '';
+            
+            return `
+                <div class="todo-item" data-task-id="${task.id}" onclick="openTaskEdit('${task.id}')">
+                    <div class="item-header">
+                        <div class="todo-text">${task.text}</div>
+                        <button class="edit-btn">✎</button>
+                    </div>
+                    ${tagsHtml}
+                </div>
+            `;
+        }
+
+        // 视图切换
+        function switchView(viewName) {
+            data.currentView = viewName;
+            document.querySelectorAll('.view-btn').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+            renderBoard();
+        }
+
+        // 列操作
+        function updateColumnTitle(colId, newTitle) {
+            const col = data.views[data.currentView].find(c => c.id === colId);
+            if(col) col.title = newTitle;
+        }
+
+        function addNewColumn() {
+            const newId = 'col-' + Date.now();
+            data.views[data.currentView].push({
+                id: newId,
+                title: 'New List',
+                tasks: []
+            });
+            renderBoard();
+            // 自动聚焦新列标题 (简化处理)
+        }
+
+        // 任务操作
+        function addNewTask(colId) {
+            const text = prompt("Enter task description:");
+            if(text) {
+                const col = data.views[data.currentView].find(c => c.id === colId);
+                col.tasks.push({
+                    id: 't-' + Date.now(),
+                    text: text,
+                    tags: []
+                });
+                renderBoard();
+            }
+        }
+
+        // 编辑任务模态框
+        function openTaskEdit(taskId) {
+            currentEditingTaskId = taskId;
+            // 查找任务
+            let task = null;
+            let parentCol = null;
+            data.views[data.currentView].forEach(col => {
+                const found = col.tasks.find(t => t.id === taskId);
+                if(found) {
+                    task = found;
+                    parentCol = col;
+                }
+            });
+            
+            if(!task) return;
+
+            document.getElementById('edit-task-desc').value = task.text;
+            document.getElementById('edit-task-tags').value = task.tags ? task.tags.join(', ') : '';
+            
+            // Set color selection
+            document.querySelectorAll('.tag-option').forEach(opt => {
+                opt.classList.remove('selected');
+                if((task.color && opt.dataset.val === task.color) || (!task.color && !opt.dataset.val)) {
+                    opt.classList.add('selected');
+                }
+            });
+
+            document.getElementById('modal-task-edit').style.display = 'flex';
+        }
+
+        function selectColor(el) {
+            document.querySelectorAll('.tag-option').forEach(opt => opt.classList.remove('selected'));
+            el.classList.add('selected');
+        }
+
+        function saveTaskChanges() {
+            const desc = document.getElementById('edit-task-desc').value;
+            const tagsStr = document.getElementById('edit-task-tags').value;
+            const colorEl = document.querySelector('.tag-option.selected');
+            const color = colorEl ? colorEl.dataset.val : '';
+            
+            const tags = tagsStr.split(',').map(t => t.trim()).filter(t => t);
+
+            // 更新数据
+            data.views[data.currentView].forEach(col => {
+                const task = col.tasks.find(t => t.id === currentEditingTaskId);
+                if(task) {
+                    task.text = desc;
+                    task.tags = tags;
+                    task.color = color;
+                }
+            });
+
+            closeModals();
+            renderBoard();
+        }
+
+        function deleteCurrentTask() {
+            if(confirm("Delete this task?")) {
+                data.views[data.currentView].forEach(col => {
+                    col.tasks = col.tasks.filter(t => t.id !== currentEditingTaskId);
+                });
+                closeModals();
+                renderBoard();
+            }
+        }
+
+        function closeModals() {
+            document.querySelectorAll('.modal-overlay').forEach(el => el.style.display = 'none');
+        }
+
+        // Initial render
+        renderBoard();
+
+        // Close on outside click
+        window.onclick = function(event) {
+            if (event.target.classList.contains('modal-overlay')) {
+                closeModals();
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Write Doing - 终极联动方案 (数据同步演示)</title>
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.3/Sortable.min.js"></script>
+    <link rel="stylesheet" href="../css/style.css">
+    <style>
+        :root { --accent-color: #4a90d9; --text-color: #2c3e50; --bg-color: #f5f7fa; }
+        
+        body { background-color: var(--bg-color); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; overflow: hidden; margin: 0; }
+        .doing-container { display: flex; flex-direction: column; height: 100vh; padding: 20px; box-sizing: border-box; max-width: 100%; margin: 0 auto; }
+        
+        /* 顶部区域 */
+        .cornell-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-shrink: 0; }
+        .cornell-title-group { display: flex; align-items: center; gap: 20px; }
+        .cornell-title-group h1 { margin: 0; font-size: 1.5rem; color: var(--text-color); }
+        .back-btn { text-decoration: none; color: #666; font-weight: bold; padding: 8px 16px; border-radius: 20px; background: #eef1f5; }
+
+        /* 视图切换器 */
+        .view-switcher { background: #eef1f5; border-radius: 8px; padding: 4px; display: flex; gap: 4px; }
+        .view-btn { border: none; background: transparent; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 0.9rem; color: #666; font-weight: 500; transition: all 0.2s; }
+        .view-btn.active { background: white; color: var(--accent-color); box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        
+        /* 看板主区域 */
+        .cornell-right { 
+            width: 100%; height: 100%; padding: 0; display: flex; gap: 15px; 
+            overflow-x: auto; padding-bottom: 20px; align-items: flex-start;
+        }
+        
+        /* 滚动条 */
+        .cornell-right::-webkit-scrollbar { height: 12px; }
+        .cornell-right::-webkit-scrollbar-track { background: #e0e0e0; border-radius: 6px; }
+        .cornell-right::-webkit-scrollbar-thumb { background: #bbb; border-radius: 6px; border: 3px solid #e0e0e0; }
+
+        /* 列样式 */
+        .kanban-column {
+            flex: 0 0 300px;
+            background: #ebecf0;
+            border-radius: 10px;
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+            max-height: 100%;
+        }
+        
+        .column-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; padding: 8px 4px; }
+        .column-title { font-weight: 600; color: #172b4d; font-size: 0.95rem; }
+        
+        /* 任务列表 */
+        .kanban-list {
+            flex: 1; overflow-y: auto; overflow-x: hidden; padding: 0 4px 4px 4px; 
+            display: flex; flex-direction: column; gap: 8px; min-height: 50px;
+        }
+
+        /* 任务卡片 */
+        .todo-item {
+            background: white; padding: 12px; border-radius: 8px; box-shadow: 0 1px 2px rgba(9, 30, 66, 0.25);
+            cursor: grab; position: relative; transition: all 0.2s; border-left: 4px solid transparent;
+        }
+        .todo-item:hover { background: #f4f5f7; }
+        
+        /* 状态颜色条 */
+        .status-todo { border-left-color: #bdc3c7; }
+        .status-doing { border-left-color: #4a90d9; }
+        .status-done { border-left-color: #2ecc71; opacity: 0.8; }
+        
+        .item-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; margin-bottom: 8px; }
+        .todo-text { font-size: 0.95rem; color: #172b4d; line-height: 1.4; font-weight: 500; }
+        
+        /* 状态选择器 (关键功能) */
+        .status-select-wrapper { margin-top: 8px; }
+        .status-select {
+            width: 100%;
+            padding: 4px 8px;
+            border-radius: 4px;
+            border: 1px solid #ddd;
+            background: #f9f9f9;
+            font-size: 0.8rem;
+            color: #555;
+            cursor: pointer;
+        }
+        .status-select:focus { border-color: var(--accent-color); outline: none; }
+
+        /* 标签 */
+        .tag-badge { 
+            display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 0.7rem; 
+            background: #eee; color: #666; margin-top: 4px;
+        }
+
+        /* 添加按钮 */
+        .add-card-btn {
+            margin-top: 8px; padding: 8px; width: 100%; background: transparent; border: none; 
+            border-radius: 4px; color: #5e6c84; cursor: pointer; text-align: left;
+        }
+        .add-card-btn:hover { background: rgba(9, 30, 66, 0.08); color: #172b4d; }
+
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+    <div class="doing-container">
+        <header class="cornell-header">
+            <div class="cornell-title-group">
+                <h1>Synced Views Demo</h1>
+                <div class="view-switcher">
+                    <button class="view-btn active" onclick="switchView('status')">Status View</button>
+                    <button class="view-btn" onclick="switchView('context')">Context View</button>
+                </div>
+            </div>
+            <a href="../index.html" class="back-btn">← Back</a>
+        </header>
+        
+        <main class="cornell-right" id="board-container">
+            <!-- Content rendered by JS -->
+        </main>
+    </div>
+
+    <script>
+        // 核心数据模型
+        // 这里的 'context' 对应你的 'list' (列名)
+        let tasks = [
+            { id: 't1', title: 'Fix Login Bug', status: 'doing', context: 'urgent' },
+            { id: 't2', title: 'Write Docs', status: 'todo', context: 'deep' },
+            { id: 't3', title: 'Buy Milk', status: 'todo', context: 'routine' },
+            { id: 't4', title: 'Weekly Meeting', status: 'done', context: 'routine' },
+            { id: 't5', title: 'New UI Design', status: 'todo', context: 'deep' }
+        ];
+
+        let currentView = 'status'; // 'status' or 'context'
+
+        // 视图定义
+        const views = {
+            status: {
+                columns: [
+                    { id: 'todo', title: 'To Do', icon: '📋' },
+                    { id: 'doing', title: 'In Progress', icon: '🔥' },
+                    { id: 'done', title: 'Done', icon: '✅' }
+                ]
+            },
+            context: {
+                columns: [
+                    { id: 'urgent', title: 'Urgent', icon: '🚨' },
+                    { id: 'deep', title: 'Deep Work', icon: '🧠' },
+                    { id: 'routine', title: 'Routine', icon: '🧹' }
+                ]
+            }
+        };
+
+        function renderBoard() {
+            const container = document.getElementById('board-container');
+            container.innerHTML = '';
+            
+            // 获取当前视图的列定义
+            const columnsDef = views[currentView].columns;
+            
+            columnsDef.forEach(col => {
+                const colEl = document.createElement('div');
+                colEl.className = 'kanban-column';
+                colEl.dataset.colId = col.id;
+                
+                // 筛选属于当前列的任务
+                const colTasks = tasks.filter(t => t[currentView] === col.id);
+
+                let tasksHtml = colTasks.map(task => createTaskHtml(task)).join('');
+
+                colEl.innerHTML = `
+                    <div class="column-header">
+                        <span class="column-title">${col.icon} ${col.title}</span>
+                        <span style="color:#999; font-size:0.8rem">${colTasks.length}</span>
+                    </div>
+                    <div class="kanban-list" id="list-${col.id}">
+                        ${tasksHtml}
+                    </div>
+                    <button class="add-card-btn" onclick="addTask('${col.id}')">+ Add card</button>
+                `;
+                container.appendChild(colEl);
+
+                // Init Sortable
+                new Sortable(colEl.querySelector('.kanban-list'), {
+                    group: 'shared',
+                    animation: 150,
+                    onEnd: function (evt) {
+                        const taskId = evt.item.dataset.taskId;
+                        const newColId = evt.to.closest('.kanban-column').dataset.colId;
+                        
+                        // 更新数据模型
+                        const task = tasks.find(t => t.id === taskId);
+                        if (task) {
+                            task[currentView] = newColId;
+                            console.log(`Moved task ${taskId} to ${newColId} in ${currentView} view`);
+                            
+                            // 如果在 Context View 拖动，我们通常不改变 Status，反之亦然
+                            // 但这里我们只是改变了"当前视图维度的属性"
+                        }
+                    }
+                });
+            });
+        }
+
+        function createTaskHtml(task) {
+            // 根据当前视图决定显示什么额外信息
+            let extraControls = '';
+            
+            if (currentView === 'context') {
+                // 在 Context View 中，我们需要显示并允许修改 Status
+                extraControls = `
+                    <div class="status-select-wrapper" onclick="event.stopPropagation()">
+                        <select class="status-select" onchange="updateTaskStatus('${task.id}', this.value)">
+                            <option value="todo" ${task.status === 'todo' ? 'selected' : ''}>To Do</option>
+                            <option value="doing" ${task.status === 'doing' ? 'selected' : ''}>In Progress</option>
+                            <option value="done" ${task.status === 'done' ? 'selected' : ''}>Done</option>
+                        </select>
+                    </div>
+                `;
+            } else {
+                // 在 Status View 中，我们显示 Context 标签
+                // 并允许修改 Context (用简单的方式，或者点击进入详情)
+                // 这里为了演示，我们显示 Context 名字
+                const contextName = views.context.columns.find(c => c.id === task.context)?.title || task.context;
+                extraControls = `<div class="tag-badge">${contextName}</div>`;
+            }
+
+            // 动态边框颜色
+            const statusClass = `status-${task.status}`;
+
+            return `
+                <div class="todo-item ${statusClass}" data-task-id="${task.id}" draggable="true">
+                    <div class="item-header">
+                        <div class="todo-text">${task.title}</div>
+                    </div>
+                    ${extraControls}
+                </div>
+            `;
+        }
+
+        // 核心联动逻辑：直接更新数据模型
+        window.updateTaskStatus = function(taskId, newStatus) {
+            const task = tasks.find(t => t.id === taskId);
+            if (task) {
+                task.status = newStatus;
+                // 在 Context View 修改状态后，虽然卡片还在当前列（因为是按Context分组），
+                // 但卡片的样式（左边框颜色）应该更新，以反映新状态。
+                renderBoard(); // 重新渲染以更新样式
+            }
+        };
+
+        function switchView(viewName) {
+            currentView = viewName;
+            document.querySelectorAll('.view-btn').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+            renderBoard();
+        }
+
+        function addTask(colId) {
+            const title = prompt("Task title:");
+            if (title) {
+                const newTask = {
+                    id: 't-' + Date.now(),
+                    title: title,
+                    status: currentView === 'status' ? colId : 'todo', // 默认状态
+                    context: currentView === 'context' ? colId : 'urgent' // 默认上下文
+                };
+                tasks.push(newTask);
+                renderBoard();
+            }
+        }
+
+        // Init
+        renderBoard();
+    </script>
+</body>
+</html>
