@@ -25,7 +25,7 @@ COPY . /usr/share/nginx/html/
 COPY nginx-server.conf /etc/nginx/nginx.conf
 
 # 暴露端口
-EXPOSE 3000
+EXPOSE 4000
 
 # 启动（直接在 CMD 中启动）
 CMD sh -c "node /app/server.js & nginx -g 'daemon off;'"

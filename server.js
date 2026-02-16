@@ -182,7 +182,7 @@ app.get('/api/health', async (req, res) => {
   }
 });
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 4000;
 app.listen(PORT, () => {
   console.log(`Diary app server running on port ${PORT}`);
   console.log(`Data directory: ${DATA_DIR}`);
